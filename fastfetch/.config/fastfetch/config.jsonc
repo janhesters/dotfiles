@@ -17,18 +17,18 @@
     },
     {
       "type": "host",
-      "key": " PC",
+      "key": " PC",
       "keyColor": "green"
     },
     {
       "type": "cpu",
-      "key": "│ ├",
+      "key": "│ ├",
       "showPeCoreCount": true,
       "keyColor": "green"
     },
     {
       "type": "gpu",
-      "key": "│ ├",
+      "key": "│ ├",
       "detectionMethod": "pci",
       "keyColor": "green"
     },
@@ -44,7 +44,7 @@
     },
     {
       "type": "memory",
-      "key": "│ ├",
+      "key": "│ ├",
       "keyColor": "green"
     },
     {
@@ -81,22 +81,22 @@
     },
     {
       "type": "kernel",
-      "key": "│ ├",
+      "key": "│ ├",
       "keyColor": "blue"
     },
     {
       "type": "wm",
-      "key": "│ ├",
+      "key": "│ ├",
       "keyColor": "blue"
     },
     {
       "type": "de",
-      "key": " DE",
+      "key": " DE",
       "keyColor": "blue"
     },
     {
       "type": "terminal",
-      "key": "│ ├",
+      "key": "│ ├",
       "keyColor": "blue"
     },
     {
@@ -117,7 +117,7 @@
     },
     {
       "type": "terminalfont",
-      "key": "└ └",
+      "key": "└ └",
       "keyColor": "blue"
     },
     {
@@ -142,7 +142,7 @@
     },
     {
       "type": "command",
-      "key": " Update",
+      "key": " Update",
       "keyColor": "magenta",
       "text": "updated=$(omarchy-version-pkgs); echo \"$updated\""
     },

@@ -1,0 +1,12 @@
+#!/bin/bash
+
+MONITOR_INFO=$(hyprctl monitors -j | jq -r '.[] | select(.name == "eDP-1")')
+CURRENT_RES=$(echo "$MONITOR_INFO" | jq -r '"\(.width)x\(.height)"')
+
+if [ "$CURRENT_RES" = "1920x1080" ]; then
+  hyprctl keyword monitor "eDP-1, preferred, auto-right, 2"
+  notify-send "󰍹    Recording mode off (2880x1800 16:10)"
+else
+  hyprctl keyword monitor "eDP-1, 1920x1080@120, auto-right, 1"
+  notify-send "󰍹    Recording mode on (1920x1080 16:9)"
+fi

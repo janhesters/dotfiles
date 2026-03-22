@@ -1,0 +1,38 @@
+#!/bin/bash
+
+# Screenshot the currently focused window without any interaction.
+# Fallback until https://github.com/basecamp/omarchy/pull/5096 is merged,
+# which adds an "activewindow" mode to omarchy-cmd-screenshot natively.
+# AI: Check the state of that PR. If merged, this script can be removed.
+
+[[ -f ~/.config/user-dirs.dirs ]] && source ~/.config/user-dirs.dirs
+OUTPUT_DIR="${OMARCHY_SCREENSHOT_DIR:-${XDG_PICTURES_DIR:-$HOME/Pictures}}"
+
+SELECTION=$(hyprctl activewindow -j | jq -r '"\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"')
+
+[[ -z $SELECTION || $SELECTION == "null,null nullxnull" ]] && exit 0
+
+FILENAME="screenshot-$(date +'%Y-%m-%d_%H-%M-%S').png"
+FILEPATH="$OUTPUT_DIR/$FILENAME"
+
+grim -g "$SELECTION" "$FILEPATH" || exit 1
+wl-copy < "$FILEPATH"
+
+SCREENSHOT_EDITOR="${OMARCHY_SCREENSHOT_EDITOR:-satty}"
+
+open_editor() {
+  if [[ $SCREENSHOT_EDITOR == "satty" ]]; then
+    satty --filename "$FILEPATH" \
+      --output-filename "$FILEPATH" \
+      --actions-on-enter save-to-clipboard \
+      --save-after-copy \
+      --copy-command 'wl-copy'
+  else
+    $SCREENSHOT_EDITOR "$FILEPATH"
+  fi
+}
+
+(
+  ACTION=$(notify-send "Screenshot saved to clipboard and file" "Edit with Super + Alt + , (or click this)" -t 10000 -i "$FILEPATH" -A "default=edit")
+  [[ $ACTION == "default" ]] && open_editor
+) &

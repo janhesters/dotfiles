@@ -55,4 +55,11 @@
 # Default is ALT+Space, but that conflicts with the Omarchy menu (SUPER ALT+SPACE).
 search_shortcut: ALT+SHIFT+SPACE
 
+# Explicitly set keyboard layout for correct trigger detection on Wayland.
+# Default is Dvorak (primary layout). The espanso-layout-sync script updates
+# the variant automatically when switching layouts via Hyprland.
+keyboard_layout:
+  layout: us
+  variant: dvorak
+
 # For a list of all the available options, visit the official docs at: https://espanso.org/docs/

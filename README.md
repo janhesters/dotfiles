@@ -6,11 +6,11 @@
 
 | Package | Description |
 |---------|-------------|
-| `hyprland` | Hyprland window manager overrides (autostart, bindings, hyprsunset, input, monitors, look & feel, recording-mode script) |
+| `hyprland` | Hyprland window manager overrides (autostart, bindings, hyprsunset, input, monitors, look & feel, recording-mode script, espanso-layout-sync listener) |
 | `fastfetch` | System info display |
 | `voxtype` | Voice-to-text config |
 | `xcompose` | Custom compose sequences (umlauts, shortcuts, emoji via Omarchy defaults) |
-| `espanso` | Text expansion macros (e.g. `::rtc` for reasoning chain prompt) |
+| `espanso` | Text expansion macros (e.g. `::rtc` for reasoning chain prompt) with Dvorak/QWERTY keyboard_layout support |
 | `cursor` | Cursor editor keybindings (smart select expand/shrink) |
 | `xdg` | Default terminal preference |
 

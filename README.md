@@ -10,6 +10,7 @@
 | `fastfetch` | System info display |
 | `voxtype` | Voice-to-text config |
 | `xcompose` | Custom compose sequences (umlauts, shortcuts, emoji via Omarchy defaults) |
+| `espanso` | Text expansion macros (e.g. `::rtc` for reasoning chain prompt) |
 | `xdg` | Default terminal preference |
 
 ## Usage
@@ -22,7 +23,7 @@ stow -t ~ <package>
 To apply all packages:
 
 ```bash
-for pkg in hyprland fastfetch voxtype xcompose xdg; do
+for pkg in hyprland fastfetch voxtype xcompose xdg espanso; do
   stow -t ~ "$pkg"
 done
 ```

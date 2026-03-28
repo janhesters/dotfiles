@@ -1,0 +1,42 @@
+#!/bin/bash
+
+# Listen for Hyprland keyboard layout changes and sync espanso's keyboard_layout
+# config so that triggers work correctly on both Dvorak and QWERTY.
+#
+# Hyprland emits "activelayout>>keyboard_name,layout_name" events on layout switch.
+# We filter for the real keyboard, skip no-op changes, and update espanso's config.
+
+ESPANSO_CONFIG="$HOME/.config/espanso/config/default.yml"
+SOCKET="$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock"
+KEYBOARD="at-translated-set-2-keyboard"
+CURRENT_VARIANT="dvorak"
+
+update_espanso_layout() {
+  local variant="$1"
+
+  # Skip if already on this variant
+  [[ "$variant" == "$CURRENT_VARIANT" ]] && return
+  CURRENT_VARIANT="$variant"
+
+  # Update the variant line in espanso config
+  if grep -q '^\s*variant:' "$ESPANSO_CONFIG" 2>/dev/null; then
+    sed -i "s/^\(\s*variant:\).*/\1 $variant/" "$ESPANSO_CONFIG"
+  fi
+
+  # Restart espanso without the startup notification
+  espanso stop >/dev/null 2>&1
+  sleep 0.3
+  espanso start --unmanaged >/dev/null 2>&1
+}
+
+socat -u "UNIX-CONNECT:$SOCKET" - | while IFS= read -r line; do
+  # Only react to the real keyboard, ignore virtual ones
+  case "$line" in
+    activelayout\>\>"$KEYBOARD"*Dvorak*)
+      update_espanso_layout "dvorak"
+      ;;
+    activelayout\>\>"$KEYBOARD",*)
+      update_espanso_layout '""'
+      ;;
+  esac
+done

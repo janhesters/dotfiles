@@ -1,0 +1,12 @@
+[
+  {
+    "key": "ctrl+l",
+    "command": "editor.action.smartSelect.expand",
+    "when": "editorTextFocus"
+  },
+  {
+    "key": "ctrl+m",
+    "command": "editor.action.smartSelect.shrink",
+    "when": "editorTextFocus"
+  }
+]

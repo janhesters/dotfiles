@@ -1,0 +1,5 @@
+matches:
+  - trigger: "::rtc"
+    replace: "show your work:\n    🎯 restate |>💡 ideate |> 🪞 reflectCritically |> 🔭 expandOrthogonally |> ⚖️ scoreRankEvaluate |> 💬 respond"
+  - trigger: "::woc"
+    replace: "Use web fetch, the Omarchy skill and read our global CLAUDE.md."

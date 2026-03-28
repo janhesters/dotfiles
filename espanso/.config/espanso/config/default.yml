@@ -49,4 +49,10 @@
 # at the cost of higher memory usage.
 # max_regex_buffer_size: 30
 
+# --- Search shortcut
+
+# Customize the keyboard shortcut used to open the espanso search bar.
+# Default is ALT+Space, but that conflicts with the Omarchy menu (SUPER ALT+SPACE).
+search_shortcut: ALT+SHIFT+SPACE
+
 # For a list of all the available options, visit the official docs at: https://espanso.org/docs/

@@ -6,9 +6,10 @@
 
 | Package | Description |
 |---------|-------------|
-| `hyprland` | Hyprland window manager overrides (bindings, input, monitors, look & feel, etc.) |
+| `hyprland` | Hyprland window manager overrides (autostart, bindings, hyprsunset, input, monitors, look & feel, recording-mode script) |
 | `fastfetch` | System info display |
 | `voxtype` | Voice-to-text config |
+| `xcompose` | Custom compose sequences (umlauts, shortcuts, emoji via Omarchy defaults) |
 | `xdg` | Default terminal preference |
 
 ## Usage
@@ -21,7 +22,7 @@ stow -t ~ <package>
 To apply all packages:
 
 ```bash
-for pkg in hyprland fastfetch voxtype xdg; do
+for pkg in hyprland fastfetch voxtype xcompose xdg; do
   stow -t ~ "$pkg"
 done
 ```

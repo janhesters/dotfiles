@@ -1,6 +1,6 @@
 # dotfiles
 
-[GNU Stow](https://www.gnu.org/software/stow/)-managed dotfiles for [Omarchy](https://omarchy.org/).
+[GNU Stow](https://www.gnu.org/software/stow/)-managed dotfiles for [Omarchy](https://omarchy.org/). On a fresh machine, run [omarchy-supplement](https://github.com/janhesters/omarchy-supplement) first — it installs `stow`, clones this repo, and applies the packages automatically via `install-dotfiles.sh`.
 
 ## Packages
 

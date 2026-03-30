@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "defaultMode": "auto"
+  },
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "showClearContextOnPlanAccept": true,
+  "hooks": {
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/jan/.claude/hooks/notify.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

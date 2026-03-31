@@ -12,7 +12,7 @@
 | `xcompose` | Custom compose sequences (umlauts, shortcuts, emoji via Omarchy defaults) |
 | `espanso` | Text expansion macros (e.g. `::rtc` for reasoning chain prompt) with Dvorak/QWERTY keyboard_layout support |
 | `claude` | Claude Code global user settings (permissions, attribution, hooks) |
-| `cursor` | Cursor editor keybindings (smart select expand/shrink) |
+| `cursor` | Cursor editor keybindings (smart select expand/shrink) and settings (keyCode dispatch for Wayland keyboard layout fix) |
 | `xdg` | Default terminal preference |
 
 ## Usage

@@ -2,4 +2,4 @@ matches:
   - trigger: "::rtc"
     replace: "show your work:\n    🎯 restate |>💡 ideate |> 🪞 reflectCritically |> 🔭 expandOrthogonally |> ⚖️ scoreRankEvaluate |> 💬 respond"
   - trigger: "::woc"
-    replace: "Use web fetch, the Omarchy skill and read our global CLAUDE.md."
+    replace: "Thoroughly 1.) use web fetch, the 2.) Omarchy skill and 3.) read our global CLAUDE.md."

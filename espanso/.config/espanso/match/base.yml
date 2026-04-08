@@ -2,4 +2,6 @@ matches:
   - trigger: "::rtc"
     replace: "show your work:\n    🎯 restate |>💡 ideate |> 🪞 reflectCritically |> 🔭 expandOrthogonally |> ⚖️ scoreRankEvaluate |> 💬 respond"
   - trigger: "::woc"
-    replace: "Thoroughly 1.) use web fetch, the 2.) Omarchy skill and 3.) read our global CLAUDE.md."
+    replace: "Thoroughly 1.) use web fetch, the 2.) Omarchy skill and 3.) read our global CLAUDE.md at `~/.claude/CLAUDE.md`."
+  - trigger: "::rcc"
+    replace: "Please load and use the aidd-review skill from `~/dev/aidd-jan` to review this PR. Then post the review as a comment."

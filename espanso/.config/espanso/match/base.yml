@@ -5,3 +5,5 @@ matches:
     replace: "Thoroughly 1.) use web fetch, the 2.) Omarchy skill and 3.) read our global CLAUDE.md at `~/.claude/CLAUDE.md`."
   - trigger: "::rcc"
     replace: "Please load and use the aidd-review skill from `~/dev/aidd-jan` to review this PR. Then post the review as a comment."
+  - trigger: "::pdc"
+    replace: "Please load and use the aidd-pr-discuss skill from `~/dev/aidd-jan` to review this PR: "

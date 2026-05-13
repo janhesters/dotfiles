@@ -6,13 +6,14 @@ When unsure about the user's intent, constraints, or the best approach, ask clar
 
 ## Omarchy
 
-OmarchyPackageManagement {
-  Constraints {
-    Never use `pacman -S` or `yay -S` directly to install packages.
-    Never edit files in `~/.local/share/omarchy/` — always override in `~/.config/`.
-    Omarchy wraps package management with its own commands that ensure consistency across updates.
-  }
+Omarchy wraps system tools with its own commands. Always use `omarchy` wrappers — never call underlying tools (systemctl, systemd-run, notify-send, pacman, yay, etc.) directly. Discover available commands with `omarchy commands`.
 
+OmarchyConstraints {
+  Never use underlying tools directly when an `omarchy` command exists.
+  Never edit files in `~/.local/share/omarchy/` — always override in `~/.config/`.
+}
+
+OmarchyPackageManagement {
   install(package) => match (package) {
     case (official Arch repo) => `omarchy-pkg-add <package>`
     case (AUR) => `omarchy-pkg-aur-add <package>`

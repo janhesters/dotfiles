@@ -1,0 +1,97 @@
+#!/bin/bash
+#
+# Toggle screen recording of the Elgato Prompter (teleprompter) monitor, with an
+# audio-source menu mirroring omarchy's Super+Ctrl+C screenrecord options.
+#
+# Why this exists instead of omarchy-capture-screenrecording: the Elgato Prompter
+# is a DisplayLink/evdi *virtual* display. gpu-screen-recorder can't capture it —
+# its kms backend can't see evdi outputs ("display not found"), and its portal
+# backend fails the EGL DMA-BUF modifier import on this AMD box. wf-recorder uses
+# the wlr-screencopy protocol + software (libx264) encoding, which works. Keep
+# using Super+Ctrl+C for the two real monitors; use this for the teleprompter.
+
+STATE=/tmp/record-teleprompter.modules   # PipeWire module IDs to tear down on stop
+LOG=/tmp/record-teleprompter.log
+
+notify() { omarchy notification send "$@"; }
+refresh_waybar() { pkill -RTMIN+8 waybar 2>/dev/null; }   # signal 8 = screenrecording-indicator
+
+teardown_audio() {
+  if [[ -f $STATE ]]; then
+    while read -r id; do [[ -n $id ]] && pactl unload-module "$id" 2>/dev/null; done <"$STATE"
+    rm -f "$STATE"
+  fi
+}
+
+# --- Already recording? Stop, finalize, tear down any audio mix. ---
+# (SIGINT lets wf-recorder write the moov atom so the mp4 is seekable.)
+if pgrep -x wf-recorder >/dev/null; then
+  pkill -INT -x wf-recorder
+  # Wait (max 5s) for wf-recorder to finish finalizing the mp4 before refreshing
+  # waybar — otherwise the indicator gets signalled while it's still alive and
+  # stays stuck "on" until the next signal.
+  for _ in $(seq 1 50); do pgrep -x wf-recorder >/dev/null || break; sleep 0.1; done
+  teardown_audio
+  refresh_waybar
+  notify "󰓛" "Teleprompter recording stopped" "Saved to ~/Videos"
+  exit 0
+fi
+
+# --- Resolve the teleprompter output by description (the evdi connector name,
+# e.g. DVI-I-2, can change across reconnects; monitors.conf matches the same way). ---
+OUTPUT=$(hyprctl monitors -j | jq -r '.[] | select(.description | test("Elgato Prom")) | .name' | head -1)
+if [[ -z $OUTPUT ]]; then
+  notify "󰕧" "Teleprompter not found" "No monitor matching 'Elgato Prom' is connected" -u critical
+  exit 1
+fi
+
+# --- Audio source menu (mirrors omarchy's screenrecord options). ---
+choice=$(printf '%s\n' \
+  "󰍭  No audio" \
+  "  Microphone" \
+  "  Desktop audio" \
+  "  Desktop + microphone" \
+  | walker --dmenu -p "Record teleprompter")
+[[ -z $choice ]] && exit 0   # menu cancelled
+
+teardown_audio   # clear any stale modules from a previous crashed run
+
+# NOTE: wf-recorder's audio device must be ATTACHED to the flag (--audio=DEVICE).
+# The detached form (-a DEVICE) is silently ignored and falls back to "default"
+# (the mic), which records silence for desktop capture.
+audio_args=()
+case "$choice" in
+*"No audio") : ;;
+*"Microphone")
+  audio_args=("--audio=$(pactl get-default-source)") ;;
+*"Desktop audio")
+  audio_args=("--audio=$(pactl get-default-sink).monitor") ;;
+*"Desktop + microphone")
+  # wf-recorder records a single device, so mix desktop + mic into a temp null
+  # sink and record its monitor. Module IDs are saved for teardown on stop.
+  sink=$(pactl get-default-sink); src=$(pactl get-default-source)
+  null=$(pactl load-module module-null-sink sink_name=tp_rec sink_properties=device.description=TeleprompterRec)
+  lb1=$(pactl load-module module-loopback source="${sink}.monitor" sink=tp_rec latency_msec=40)
+  lb2=$(pactl load-module module-loopback source="$src" sink=tp_rec latency_msec=40)
+  printf '%s\n' "$lb1" "$lb2" "$null" >"$STATE"   # unload loopbacks before the sink
+  audio_args=("--audio=tp_rec.monitor") ;;
+esac
+
+# --- Record. ---
+[[ -f ~/.config/user-dirs.dirs ]] && source ~/.config/user-dirs.dirs
+OUTPUT_DIR="${XDG_VIDEOS_DIR:-$HOME/Videos}"
+mkdir -p "$OUTPUT_DIR"
+FILE="$OUTPUT_DIR/teleprompter-$(date +'%Y-%m-%d_%H-%M-%S').mp4"
+
+# -r 30 forces constant 30fps; wf-recorder is damage-based, so a static/paused
+# teleprompter screen would otherwise emit almost no frames (zero-duration clip).
+wf-recorder -o "$OUTPUT" -r 30 "${audio_args[@]}" -f "$FILE" >"$LOG" 2>&1 &
+sleep 0.6
+
+if pgrep -x wf-recorder >/dev/null; then
+  refresh_waybar
+  notify "󰕧" "Teleprompter recording started" "${choice#*  } · $(basename "$FILE")"
+else
+  teardown_audio
+  notify "󰕧" "Teleprompter recording failed" "See $LOG" -u critical
+fi

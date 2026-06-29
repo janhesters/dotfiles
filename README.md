@@ -6,7 +6,7 @@
 
 | Package | Description |
 |---------|-------------|
-| `hyprland` | Hyprland window manager overrides (autostart, bindings, hyprsunset, input, monitors, look & feel, recording-mode script, espanso-layout-sync listener) |
+| `hyprland` | Hyprland window manager overrides (autostart, bindings, hyprsunset, input, monitors, look & feel, recording-mode script, teleprompter-recording script, off-screen-window rescue script, espanso-layout-sync listener) |
 | `fastfetch` | System info display |
 | `voxtype` | Voice-to-text config |
 | `xcompose` | Custom compose sequences (umlauts, shortcuts, emoji via Omarchy defaults) |

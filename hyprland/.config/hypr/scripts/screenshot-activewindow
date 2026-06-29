@@ -1,9 +1,8 @@
 #!/bin/bash
 
 # Screenshot the currently focused window without any interaction.
-# Fallback until https://github.com/basecamp/omarchy/pull/5096 is merged,
-# which adds an "activewindow" mode to omarchy-cmd-screenshot natively.
-# AI: Check the state of that PR. If merged, this script can be removed.
+# Reuses omarchy-cmd-screenshot's output/clipboard/notification logic by
+# grabbing the active window geometry and passing it to grim directly.
 
 [[ -f ~/.config/user-dirs.dirs ]] && source ~/.config/user-dirs.dirs
 OUTPUT_DIR="${OMARCHY_SCREENSHOT_DIR:-${XDG_PICTURES_DIR:-$HOME/Pictures}}"

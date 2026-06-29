@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Rescue floating windows that have drifted off-screen (e.g. after waking from
+# sleep with an external monitor — a known Hyprland bug). Only windows that are
+# mostly off-screen are moved; on-screen floats you placed yourself are left
+# alone. Rescued windows are centered on the currently focused monitor.
+
+moves=$(python3 - <<'PY'
+import json, subprocess
+
+def hctl(*args):
+    return json.loads(subprocess.check_output(["hyprctl", "-j", *args]))
+
+mons = hctl("monitors")
+clis = hctl("clients")
+
+# Logical rectangles per monitor (position is logical; size is physical/scale)
+rects, focused = [], None
+for m in mons:
+    s = m.get("scale", 1) or 1
+    r = {"x": m["x"], "y": m["y"], "w": m["width"] / s, "h": m["height"] / s}
+    rects.append(r)
+    if m.get("focused"):
+        focused = r
+if focused is None and rects:
+    focused = rects[0]
+
+def overlap_frac(wx, wy, ww, wh):
+    if ww <= 0 or wh <= 0:
+        return 0.0
+    best = 0.0
+    for r in rects:
+        ox = max(0, min(wx + ww, r["x"] + r["w"]) - max(wx, r["x"]))
+        oy = max(0, min(wy + wh, r["y"] + r["h"]) - max(wy, r["y"]))
+        best = max(best, (ox * oy) / (ww * wh))
+    return best
+
+for c in clis:
+    if not c.get("floating"):
+        continue
+    if c.get("workspace", {}).get("name", "").startswith("special"):
+        continue  # leave scratchpad windows alone
+    wx, wy = c["at"]
+    ww, wh = c["size"]
+    if overlap_frac(wx, wy, ww, wh) >= 0.6:
+        continue  # comfortably on-screen, don't touch
+    tx = int(focused["x"] + (focused["w"] - ww) / 2)
+    ty = int(focused["y"] + (focused["h"] - wh) / 2)
+    print(c["address"], tx, ty)
+PY
+)
+
+count=0
+while read -r addr x y; do
+    [ -z "$addr" ] && continue
+    hyprctl dispatch focuswindow "address:$addr" >/dev/null
+    hyprctl dispatch moveactive exact "$x" "$y" >/dev/null
+    count=$((count + 1))
+done <<<"$moves"
+
+echo "Rescued $count window(s)"

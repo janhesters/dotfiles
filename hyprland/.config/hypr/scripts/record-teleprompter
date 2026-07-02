@@ -9,8 +9,20 @@
 # backend fails the EGL DMA-BUF modifier import on this AMD box. wf-recorder uses
 # the wlr-screencopy protocol + software (libx264) encoding, which works. Keep
 # using Super+Ctrl+C for the two real monitors; use this for the teleprompter.
+#
+# A background watchdog guards against the dock's USB dropping mid-recording
+# (2026-07-02: the CalDigit TS4 hub re-enumerated 5s into a take; Hyprland
+# destroyed the evdi output and wf-recorder silently recorded 34 min of nothing).
+# If the prompter output vanishes, the watchdog finalizes the current segment,
+# resumes into a new one as soon as the display returns, and on stop the segments
+# are stitched into ONE continuous video: the gap is filled with the frozen last
+# frame + silence, so the video freezes over the drop and then keeps going.
 
 STATE=/tmp/record-teleprompter.modules   # PipeWire module IDs to tear down on stop
+WATCHDOG=/tmp/record-teleprompter.watchdog   # watchdog PID, killed on toggle-stop
+WAITING=/tmp/record-teleprompter.waiting   # exists while waiting for the prompter to
+                                           # reconnect (waybar shows an orange glyph)
+SEGMENTS=/tmp/record-teleprompter.segments   # files of the current session, in order
 LOG=/tmp/record-teleprompter.log
 
 notify() { omarchy notification send "$@"; }
@@ -23,23 +35,139 @@ teardown_audio() {
   fi
 }
 
-# --- Already recording? Stop, finalize, tear down any audio mix. ---
-# (SIGINT lets wf-recorder write the moov atom so the mp4 is seekable.)
-if pgrep -x wf-recorder >/dev/null; then
-  pkill -INT -x wf-recorder
-  # Wait (max 5s) for wf-recorder to finish finalizing the mp4 before refreshing
-  # waybar — otherwise the indicator gets signalled while it's still alive and
-  # stays stuck "on" until the next signal.
-  for _ in $(seq 1 50); do pgrep -x wf-recorder >/dev/null || break; sleep 0.1; done
+# The evdi connector name (e.g. DVI-I-2) can change across reconnects, so always
+# resolve the output by description (monitors.conf matches the same way).
+find_output() {
+  hyprctl monitors -j | jq -r '.[] | select(.description | test("Elgato Prom")) | .name' | head -1
+}
+
+# Is the recorded watchdog PID alive and actually one of ours? Guards against a
+# stale pidfile after a crash pointing at some unrelated recycled PID.
+watchdog_alive() {
+  local pid
+  [[ -f $WATCHDOG ]] && pid=$(<"$WATCHDOG") || return 1
+  [[ -d /proc/$pid ]] && grep -aq record-teleprompter "/proc/$pid/cmdline" 2>/dev/null
+}
+
+# Stop wf-recorder and make sure it is actually gone. SIGINT lets it write the
+# moov atom so the mp4 is seekable — but with --audio it then routinely hangs on
+# exit (encoder done, file closed, process ignores SIGTERM). So: SIGINT, wait,
+# and once it has closed the mp4 (finalized, nothing left to lose) force-kill.
+stop_recorder() {
+  local pid
+  pid=$(pgrep -ox wf-recorder) || return 0
+  kill -INT "$pid" 2>/dev/null
+  for _ in $(seq 1 50); do kill -0 "$pid" 2>/dev/null || return 0; sleep 0.1; done
+  for _ in $(seq 1 100); do
+    readlink "/proc/$pid"/fd/* 2>/dev/null | grep -q '\.mp4$' || break
+    sleep 0.1
+  done
+  kill -KILL "$pid" 2>/dev/null
+  for _ in $(seq 1 10); do kill -0 "$pid" 2>/dev/null || break; sleep 0.1; done
+}
+
+# Start a new recording segment on output $1; sets FILE. audio_args must be set.
+start_recorder() {
+  FILE="$OUTPUT_DIR/teleprompter-$(date +'%Y-%m-%d_%H-%M-%S').mp4"
+  # -r 30 forces constant 30fps; wf-recorder is damage-based, so a static/paused
+  # teleprompter screen would otherwise emit almost no frames (zero-duration clip).
+  wf-recorder -o "$1" -r 30 "${audio_args[@]}" -f "$FILE" >"$LOG" 2>&1 &
+}
+
+# Epoch seconds of a segment's start, parsed from its filename timestamp.
+segment_start() {
+  local ts d t
+  ts=$(basename "$1" .mp4); ts=${ts#teleprompter-}   # 2026-07-02_17-06-06
+  d=${ts%%_*}; t=${ts#*_}; t=${t//-/:}
+  date -d "$d $t" +%s 2>/dev/null
+}
+
+# Stitch a multi-segment session (from a dock drop) into ONE continuous video.
+# Each gap where the prompter was gone is filled with the frozen last frame of
+# the previous segment (+ silence when the session has audio), so the result
+# freezes over the drop and keeps going with A/V still in sync. Re-encodes the
+# whole session (concat -c copy across freeze clips is too fragile); segments
+# are kept next to the stitched file in case anything goes wrong.
+stitch_session() {
+  local manifest=$1 workdir out list
+  workdir=$(mktemp -d /tmp/record-teleprompter-stitch.XXXXXX) || return 1
+  mv "$manifest" "$workdir/manifest"
+  local segs=()
+  while read -r f; do [[ -f $f ]] && segs+=("$f"); done <"$workdir/manifest"
+  if ((${#segs[@]} < 2)); then rm -rf "$workdir"; return 0; fi
+  out="${segs[0]%.mp4}-stitched.mp4"
+  list="$workdir/concat.txt"
+
+  local has_audio=0 acodec=()
+  [[ -n $(ffprobe -v error -select_streams a -show_entries stream=index -of csv=p=0 "${segs[0]}") ]] \
+    && { has_audio=1; acodec=(-c:a aac -b:a 128k); }
+
+  local i=0 seg prev="" prev_start="" start dur gap png
+  for seg in "${segs[@]}"; do
+    start=$(segment_start "$seg")
+    if [[ -n $prev && -n $start && -n $prev_start ]]; then
+      dur=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$prev")
+      gap=$((start - prev_start - ${dur%.*}))
+      if ((gap > 0)); then
+        # Freeze frame: last decodable frame near the end of the previous segment.
+        png="$workdir/freeze$i.png"
+        ffmpeg -y -v error -sseof -2 -i "$prev" -an -update 1 -frames:v 1 "$png" 2>/dev/null
+        [[ -s $png ]] || ffmpeg -y -v error -sseof -10 -i "$prev" -an -update 1 -frames:v 1 "$png" 2>/dev/null
+        if [[ -s $png ]]; then
+          if ((has_audio)); then
+            ffmpeg -y -v error -loop 1 -i "$png" -f lavfi -i anullsrc=r=48000:cl=stereo \
+              -t "$gap" -r 30 -c:v libx264 -preset superfast -crf 20 -pix_fmt yuv420p \
+              "${acodec[@]}" "$workdir/gap$i.mp4"
+          else
+            ffmpeg -y -v error -loop 1 -i "$png" \
+              -t "$gap" -r 30 -c:v libx264 -preset superfast -crf 20 -pix_fmt yuv420p \
+              "$workdir/gap$i.mp4"
+          fi
+          [[ -s $workdir/gap$i.mp4 ]] && printf "file '%s'\n" "$workdir/gap$i.mp4" >>"$list"
+        fi
+      fi
+    fi
+    printf "file '%s'\n" "$seg" >>"$list"
+    prev=$seg; prev_start=$start; ((i++))
+  done
+
+  notify "󰕧" "Stitching teleprompter session" "${#segs[@]} segments → $(basename "$out")"
+  if ffmpeg -y -v error -f concat -safe 0 -i "$list" \
+       -vf fps=30 -c:v libx264 -preset superfast -crf 20 -pix_fmt yuv420p \
+       "${acodec[@]}" "$out"; then
+    notify "󰕧" "Teleprompter session stitched" "$(basename "$out") — segments kept too"
+  else
+    notify "󰕧" "Stitching failed" "Individual segments are intact in ~/Videos" -u critical
+  fi
+  rm -rf "$workdir"
+}
+
+# End of a session: if a dock drop split it into segments, stitch them in the
+# background (re-encoding a long take can run minutes; don't block the toggle).
+finish_session() {
+  if [[ -f $SEGMENTS ]] && (($(grep -c . "$SEGMENTS") >= 2)); then
+    (stitch_session "$SEGMENTS") &
+    disown
+  else
+    rm -f "$SEGMENTS"
+  fi
+}
+
+# --- Already recording (or waiting to resume)? Stop everything, finalize, tear
+# down any audio mix. Kill the watchdog FIRST so it can't restart the recorder. ---
+if pgrep -x wf-recorder >/dev/null || watchdog_alive; then
+  watchdog_alive && kill "$(<"$WATCHDOG")" 2>/dev/null
+  rm -f "$WATCHDOG" "$WAITING"
+  stop_recorder
   teardown_audio
   refresh_waybar
   notify "󰓛" "Teleprompter recording stopped" "Saved to ~/Videos"
+  finish_session
   exit 0
 fi
+rm -f "$WATCHDOG" "$WAITING" "$SEGMENTS"   # stale files from a crashed run
 
-# --- Resolve the teleprompter output by description (the evdi connector name,
-# e.g. DVI-I-2, can change across reconnects; monitors.conf matches the same way). ---
-OUTPUT=$(hyprctl monitors -j | jq -r '.[] | select(.description | test("Elgato Prom")) | .name' | head -1)
+OUTPUT=$(find_output)
 if [[ -z $OUTPUT ]]; then
   notify "󰕧" "Teleprompter not found" "No monitor matching 'Elgato Prom' is connected" -u critical
   exit 1
@@ -81,17 +209,75 @@ esac
 [[ -f ~/.config/user-dirs.dirs ]] && source ~/.config/user-dirs.dirs
 OUTPUT_DIR="${XDG_VIDEOS_DIR:-$HOME/Videos}"
 mkdir -p "$OUTPUT_DIR"
-FILE="$OUTPUT_DIR/teleprompter-$(date +'%Y-%m-%d_%H-%M-%S').mp4"
 
-# -r 30 forces constant 30fps; wf-recorder is damage-based, so a static/paused
-# teleprompter screen would otherwise emit almost no frames (zero-duration clip).
-wf-recorder -o "$OUTPUT" -r 30 "${audio_args[@]}" -f "$FILE" >"$LOG" 2>&1 &
+start_recorder "$OUTPUT"
 sleep 0.6
 
 if pgrep -x wf-recorder >/dev/null; then
+  printf '%s\n' "$FILE" >"$SEGMENTS"
   refresh_waybar
   notify "󰕧" "Teleprompter recording started" "${choice#*  } · $(basename "$FILE")"
 else
   teardown_audio
   notify "󰕧" "Teleprompter recording failed" "See $LOG" -u critical
+  exit 1
 fi
+
+# --- Watchdog: finalize + auto-resume if the prompter output disappears. Runs
+# until toggle-stop kills it (via $WATCHDOG) or the recorder ends on its own. ---
+(
+  while sleep 3; do
+    if ! pgrep -x wf-recorder >/dev/null; then
+      # Recorder died on its own (toggle-stop kills this watchdog first, so this
+      # is a crash) — clean up and tell the user rather than failing silently.
+      teardown_audio
+      refresh_waybar
+      rm -f "$WATCHDOG"
+      notify "󰕧" "Teleprompter recording ended unexpectedly" "See $LOG" -u critical
+      finish_session
+      exit 0
+    fi
+    [[ -n $(find_output) ]] && continue
+
+    # Output is gone (dock USB drop): the segment so far is intact — finalize it
+    # now instead of letting wf-recorder record nothing against a dead output.
+    stop_recorder
+    touch "$WAITING"
+    refresh_waybar
+    notify "󰕧" "Prompter disconnected" "Segment saved: $(basename "$FILE") — will resume automatically" -u critical
+
+    OUTPUT=""
+    for _ in $(seq 1 120); do   # wait up to ~2 min for the display to return
+      OUTPUT=$(find_output)
+      [[ -n $OUTPUT ]] && break
+      sleep 1
+    done
+    if [[ -z $OUTPUT ]]; then
+      teardown_audio
+      rm -f "$WATCHDOG" "$WAITING"
+      refresh_waybar
+      notify "󰕧" "Teleprompter recording ended" "Prompter did not reconnect within 2 min" -u critical
+      finish_session
+      exit 1
+    fi
+
+    sleep 2   # let the reconnected output settle before capturing
+    start_recorder "$OUTPUT"
+    sleep 0.6
+    if pgrep -x wf-recorder >/dev/null; then
+      printf '%s\n' "$FILE" >>"$SEGMENTS"
+      rm -f "$WAITING"
+      refresh_waybar
+      notify "󰕧" "Teleprompter recording resumed" "$(basename "$FILE")"
+    else
+      teardown_audio
+      rm -f "$WATCHDOG" "$WAITING"
+      refresh_waybar
+      notify "󰕧" "Teleprompter resume failed" "See $LOG" -u critical
+      finish_session
+      exit 1
+    fi
+  done
+) &
+echo $! >"$WATCHDOG"
+disown

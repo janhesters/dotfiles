@@ -12,6 +12,7 @@
 | `xcompose` | Custom compose sequences (umlauts, shortcuts, emoji via Omarchy defaults) |
 | `espanso` | Text expansion macros (e.g. `::rtc` for reasoning chain prompt) with Dvorak/QWERTY keyboard_layout support |
 | `claude` | Claude Code global user settings (permissions, attribution, hooks) and CLAUDE.md (system-wide instructions) |
+| `codex` | Codex CLI sandbox and approval defaults |
 | `cursor` | Cursor editor keybindings (smart select expand/shrink) and settings (keyCode dispatch for Wayland keyboard layout fix) |
 | `xdg` | Default terminal preference |
 
@@ -25,7 +26,7 @@ stow -t ~ <package>
 To apply all packages:
 
 ```bash
-for pkg in claude cursor hyprland fastfetch voxtype xcompose xdg espanso; do
+for pkg in claude codex cursor hyprland fastfetch voxtype xcompose xdg espanso; do
   stow -t ~ "$pkg"
 done
 ```

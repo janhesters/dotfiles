@@ -15,6 +15,7 @@
 | `codex` | Codex CLI sandbox, approval defaults, and AGENTS.md (system-wide instructions) |
 | `cursor` | Cursor editor keybindings (smart select expand/shrink) and settings (keyCode dispatch for Wayland keyboard layout fix) |
 | `xdg` | Default terminal preference |
+| `wireplumber` | PipeWire session manager rules (demote Sony ZV-E1 camera audio so real mics always win default-source selection) |
 
 ## Usage
 
@@ -26,7 +27,7 @@ stow -t ~ <package>
 To apply all packages:
 
 ```bash
-for pkg in claude codex cursor hyprland fastfetch voxtype xcompose xdg espanso; do
+for pkg in claude codex cursor hyprland fastfetch voxtype xcompose xdg espanso wireplumber; do
   stow -t ~ "$pkg"
 done
 ```

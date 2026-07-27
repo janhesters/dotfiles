@@ -6,7 +6,9 @@ When unsure about the user's intent, constraints, or the best approach, ask clar
 
 ## Prose Writing
 
-Whenever writing prose for the user — including Slack messages / DMs, emails, video descriptions, blog articles, documentation, and similar written material — first read and follow the prose-writing skill at `~/dev/aidd-jan/.agents/skills/aidd-prose-writing/SKILL.md`.
+Read and follow the prose-writing skill at `~/dev/aidd-jan/.agents/skills/aidd-prose-writing/SKILL.md` only when the task requires writing or editing a prose deliverable for the user. Examples include Slack messages / DMs, emails, posts, articles, video descriptions or scripts, notes, and documentation.
+
+Do not read the prose-writing skill for ordinary conversational replies, progress updates, explanations, clarifying questions, or short answers where prose is only the medium rather than the requested deliverable.
 
 ## Skill Creation
 

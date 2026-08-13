@@ -64,6 +64,76 @@ constraint ThreadReads {
   To read or summarize a thread => get_thread(threadId) for the complete message list.
 }
 
+## SDR email signatures
+
+Every external email originating from Scale360 or another SDR or lead-generation partner must include the sender's complete personal sign-off, legal footer, and confidentiality notice. This includes prospect information emails, follow-ups, replies, forwards, and partner correspondence.
+
+The structure follows [André Reutlinger's Slack guidance](https://reactsquad-earlynode.slack.com/archives/C0BP0TLUKC1/p1786343344115939). The ReactSquad blocks below are canonical; do not copy Scale360's company details.
+
+When referring to the person who made the outreach call, write "my colleague" or the equivalent in the email's language. Do not name the SDR caller unless the user explicitly asks you to name them.
+
+For emails sent by Jan, copy exactly one of the complete blocks below. Match the signature language to the language of the email. Never combine the German and English versions in one email.
+
+### Jan: German email
+
+```text
+Viele Grüße
+
+Jan Hesters
+CTO | ReactSquad
+LinkedIn: https://www.linkedin.com/in/jan-hesters/
+Mobil: +49 157 89577653 | E-Mail: jan@reactsquad.io
+https://www.reactsquad.io
+
+EarlyNode GmbH
+Engelbertstraße 33
+52078 Aachen
+Deutschland
+
+Geschäftsführer: Nikolas Chapoupis-Mertens
+Handelsregister: Amtsgericht Aachen | HRB 21731
+USt.-ID: DE317573558
+Impressum: https://www.reactsquad.io/imprint
+
+Diese E-Mail enthält vertrauliche und/oder rechtlich geschützte Informationen. Wenn Sie nicht der richtige Adressat sind oder diese E-Mail irrtümlich erhalten haben, informieren Sie bitte den Absender und löschen Sie diese E-Mail. Das unerlaubte Kopieren sowie die unbefugte Weitergabe dieser E-Mail und der darin enthaltenen Informationen sind nicht gestattet.
+```
+
+### Jan: English email
+
+```text
+Best regards,
+
+Jan Hesters
+CTO | ReactSquad
+LinkedIn: https://www.linkedin.com/in/jan-hesters/
+Mobile: +49 157 89577653 | Email: jan@reactsquad.io
+https://www.reactsquad.io
+
+EarlyNode GmbH
+Engelbertstraße 33
+52078 Aachen
+Germany
+
+Managing Director: Nikolas Chapoupis-Mertens
+Commercial Register: Local Court Aachen | HRB 21731
+VAT ID: DE317573558
+Imprint: https://www.reactsquad.io/imprint
+
+This email contains confidential and/or legally protected information. If you are not the intended recipient or have received this email in error, please notify the sender and delete this email. Unauthorised copying, as well as the unauthorised disclosure of this email and the information contained therein, is not permitted.
+```
+
+For emails sent by Nikolas, use the following personal details with the legal footer and confidentiality notice from the matching language block above. Do not copy Jan's personal details. If a required personal contact detail is missing, ask the user instead of guessing.
+
+```text
+Nikolas Chapoupis-Mertens
+CEO & Managing Director | ReactSquad
+nikolas@reactsquad.io | https://www.reactsquad.io
+```
+
+In HTML or rich-text email, render the confidentiality notice in a smaller font and italics. Use `font-size: 10px; font-style: italic; color: #666666;` when HTML styling is available.
+
+Do not send or draft an SDR-sourced external email without the complete language-matched signature. Do not include a confidentiality notice in a language different from the email.
+
 ## Printing
 
 constraint Printing {

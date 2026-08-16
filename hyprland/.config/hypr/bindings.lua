@@ -5,6 +5,9 @@ local hypr_scripts = (os.getenv("XDG_CONFIG_HOME") or ((os.getenv("HOME") or "")
 o.bind("ALT + Alt_R", "Toggle Dvorak/QWERTY", hypr_scripts .. "keyboard-layout-toggle", { release = true })
 
 -- Restore personal application choices that differ from Quattro's defaults.
+hl.unbind("SUPER + SHIFT + A")
+o.bind("SUPER + SHIFT + A", "ChatGPT (Codex)", { launch = "chatgpt" })
+
 hl.unbind("SUPER + SHIFT + W")
 o.bind("SUPER + SHIFT + W", "Typora", { launch = "typora --enable-wayland-ime" })
 

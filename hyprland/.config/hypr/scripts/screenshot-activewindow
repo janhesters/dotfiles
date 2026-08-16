@@ -1,11 +1,13 @@
 #!/bin/bash
 
 # Screenshot the currently focused window without any interaction.
-# Reuses omarchy-cmd-screenshot's output/clipboard/notification logic by
-# grabbing the active window geometry and passing it to grim directly.
+# Grabs the active window geometry directly because Omarchy's screenshot
+# wrapper currently supports regions, windows, and full screens, but not the
+# already-focused window without interaction.
 
 [[ -f ~/.config/user-dirs.dirs ]] && source ~/.config/user-dirs.dirs
 OUTPUT_DIR="${OMARCHY_SCREENSHOT_DIR:-${XDG_PICTURES_DIR:-$HOME/Pictures}}"
+mkdir -p "$OUTPUT_DIR"
 
 SELECTION=$(hyprctl activewindow -j | jq -r '"\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"')
 
@@ -15,23 +17,12 @@ FILENAME="screenshot-$(date +'%Y-%m-%d_%H-%M-%S').png"
 FILEPATH="$OUTPUT_DIR/$FILENAME"
 
 grim -g "$SELECTION" "$FILEPATH" || exit 1
-wl-copy < "$FILEPATH"
+wl-copy --type image/png <"$FILEPATH"
 
-SCREENSHOT_EDITOR="${OMARCHY_SCREENSHOT_EDITOR:-satty}"
-
-open_editor() {
-  if [[ $SCREENSHOT_EDITOR == "satty" ]]; then
-    satty --filename "$FILEPATH" \
-      --output-filename "$FILEPATH" \
-      --actions-on-enter save-to-clipboard \
-      --save-after-copy \
-      --copy-command 'wl-copy'
-  else
-    $SCREENSHOT_EDITOR "$FILEPATH"
-  fi
-}
-
-(
-  ACTION=$(notify-send "Screenshot saved to clipboard and file" "Edit with Super + Alt + , (or click this)" -t 10000 -i "$FILEPATH" -A "default=edit")
-  [[ $ACTION == "default" ]] && open_editor
-) &
+printf -v EDIT_COMMAND 'tensaku-edit %q' "$FILEPATH"
+omarchy notification send \
+  --image "$FILEPATH" \
+  --exec "$EDIT_COMMAND" \
+  "Screenshot saved to clipboard and file" \
+  "Click to edit in Tensaku" \
+  -t 10000 || true

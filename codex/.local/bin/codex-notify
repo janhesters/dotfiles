@@ -1,0 +1,20 @@
+#!/bin/bash
+
+set -euo pipefail
+
+payload=${1:-}
+
+event_type=$(jq -r '.type // empty' <<<"$payload" 2>/dev/null) || exit 0
+[[ $event_type == "agent-turn-complete" ]] || exit 0
+
+working_directory=$(jq -r '.cwd // "unknown"' <<<"$payload")
+project_name=$(basename "$working_directory")
+message=$(
+  jq -r '
+    ."last-assistant-message" // "Ready for your input"
+    | gsub("\\s+"; " ")
+    | if length > 240 then .[:237] + "..." else . end
+  ' <<<"$payload"
+)
+
+omarchy notification send -g "󰚩" "Codex: $project_name" "$message"

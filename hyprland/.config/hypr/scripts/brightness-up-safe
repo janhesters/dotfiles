@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# This laptop panel blanks at its exact raw maximum. Keep Omarchy's laptop
+# display handling and OSD, but cap the function-row brightness-up key at 99%.
+exec {lock_fd}>"${XDG_RUNTIME_DIR:-/tmp}/brightness-up-safe.lock"
+flock -n "$lock_fd" || exit 0
+
+current=$(omarchy brightness display --monitor eDP-1) || exit 1
+[[ $current =~ ^[0-9]+$ ]] || exit 1
+
+target=$((current + 5))
+((target > 99)) && target=99
+
+omarchy brightness display --monitor eDP-1 "${target}%"

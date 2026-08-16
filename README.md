@@ -32,6 +32,15 @@ Stow **`agents` before** `claude` / `codex` / `grok` so the real file exists whe
 
 ## Usage
 
+For an existing Omarchy 4 installation, use `install-dotfiles.sh` from
+[`omarchy-supplement`](https://github.com/janhesters/omarchy-supplement). It is
+the complete migration path: it backs up conflicts, unfolds older Stow trees,
+creates Espanso's runtime profile selector, and reloads the desktop.
+
+For a manual install, always pass `--no-folding`. Espanso writes its active
+profile selector at runtime, so `~/.config/espanso/` must remain a real
+directory instead of a symlink to this repository.
+
 ```bash
 cd ~/dev/dotfiles
 stow --no-folding --target "$HOME" <package>
@@ -43,13 +52,11 @@ To apply all packages:
 for pkg in agents claude codex grok cursor hyprland fastfetch voxtype xcompose espanso wireplumber; do
   stow --no-folding --target "$HOME" "$pkg"
 done
+omarchy restart hyprctl
 ```
 
-For an existing Omarchy installation, prefer `install-dotfiles.sh` from
-[`omarchy-supplement`](https://github.com/janhesters/omarchy-supplement). It
-backs up conflicting files, unfolds older Stow trees, creates Espanso's runtime
-profile selector, and reloads the desktop safely. On a clean manual install,
-initialize Espanso and start the listener for the current session after stowing:
+After manual stowing, initialize Espanso's selector and start its listener for
+the current session:
 
 ```bash
 espanso service check >/dev/null 2>&1 || espanso service register
@@ -58,10 +65,10 @@ if ! espanso service status >/dev/null 2>&1; then
   espanso service start
   ~/.config/hypr/scripts/espanso-layout-sync --once
 fi
-uwsm-app -- ~/.config/hypr/scripts/espanso-layout-sync
+uwsm-app -t service -- ~/.config/hypr/scripts/espanso-layout-sync
 ```
 
-The listener also starts automatically at the next Hyprland login.
+Quattro's `autostart.lua` starts the listener automatically on future logins.
 
 ## Notes
 

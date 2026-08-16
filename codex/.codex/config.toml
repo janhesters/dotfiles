@@ -1,8 +1,10 @@
-model = "gpt-5.5"
+model = "gpt-5.6-sol"
 model_reasoning_effort = "high"
 sandbox_mode = "workspace-write"
 approval_policy = "on-request"
 approvals_reviewer = "auto_review"
+service_tier = "default"
+notify = ["/home/jan/.local/bin/codex-notify"]
 
 [sandbox_workspace_write]
 network_access = true
@@ -19,5 +21,58 @@ trust_level = "trusted"
 [projects."/home/jan/dev/dentalgenieio"]
 trust_level = "trusted"
 
+[projects."/home/jan/dev/ai-video-editor"]
+trust_level = "trusted"
+
+[projects."/home/jan/obsidian-vault"]
+trust_level = "trusted"
+
+[projects."/home/jan/dev/mono"]
+trust_level = "trusted"
+
+[projects."/home/jan/dev/ai-receptionist"]
+trust_level = "trusted"
+
+[projects."/home/jan/dev/testing-masterclass"]
+trust_level = "trusted"
+
+[projects."/home/jan/dev/janhesters.com"]
+trust_level = "trusted"
+
+[projects."/home/jan/dev/solicitations"]
+trust_level = "trusted"
+
+[projects."/home/jan/dev/TradeBuilder"]
+trust_level = "trusted"
+
+[projects."/home/jan/dev/learn"]
+trust_level = "trusted"
+
+[projects."/home/jan/dev/vitamin-p"]
+trust_level = "trusted"
+
+[projects."/home/jan/Documents/tickets"]
+trust_level = "trusted"
+
+[projects."/home/jan/dev/dealbill"]
+trust_level = "trusted"
+
+[projects."/home/jan/dev/policypocket"]
+trust_level = "trusted"
+
+[projects."/home/jan"]
+trust_level = "trusted"
+
+[projects."/home/jan/dev/get-signals"]
+trust_level = "trusted"
+
+[tui]
+# Use the external Omarchy notifier instead of terminal OSC 9/BEL alerts,
+# which can request focus from the compositor.
+notifications = false
+status_line = ["model-with-reasoning", "current-dir", "context-remaining", "five-hour-limit", "weekly-limit", "context-window-size", "used-tokens"]
+status_line_use_colors = true
+
 [tui.model_availability_nux]
 "gpt-5.5" = 4
+"gpt-5.6-sol" = 4

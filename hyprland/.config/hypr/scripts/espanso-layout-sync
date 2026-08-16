@@ -1,42 +1,316 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# Listen for Hyprland keyboard layout changes and sync espanso's keyboard_layout
-# config so that triggers work correctly on both Dvorak and QWERTY.
-#
-# Hyprland emits "activelayout>>keyboard_name,layout_name" events on layout switch.
-# We filter for the real keyboard, skip no-op changes, and update espanso's config.
+set -euo pipefail
 
-ESPANSO_CONFIG="$HOME/.config/espanso/config/default.yml"
-SOCKET="$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock"
-KEYBOARD="at-translated-set-2-keyboard"
-CURRENT_VARIANT="dvorak"
+config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
+espanso_root="$config_home/espanso"
+espanso_config_dir="$espanso_root/config"
+espanso_profiles_dir="$espanso_root/profiles"
+espanso_selector="$espanso_config_dir/default.yml"
 
-update_espanso_layout() {
-  local variant="$1"
+hypr_runtime_dir="${XDG_RUNTIME_DIR:-}"
+if [[ -n "$hypr_runtime_dir" ]]; then
+  lock_dir="$hypr_runtime_dir/omarchy-espanso-layout"
+else
+  lock_dir="${TMPDIR:-/tmp}/omarchy-espanso-layout-$UID"
+fi
+listener_lock="$lock_dir/listener.lock"
+sync_lock="$lock_dir/sync.lock"
+applied_state="$lock_dir/applied-profile"
 
-  # Skip if already on this variant
-  [[ "$variant" == "$CURRENT_VARIANT" ]] && return
-  CURRENT_VARIANT="$variant"
-
-  # Update the variant line in espanso config
-  if grep -q '^\s*variant:' "$ESPANSO_CONFIG" 2>/dev/null; then
-    sed -i "s/^\(\s*variant:\).*/\1 $variant/" "$ESPANSO_CONFIG"
-  fi
-
-  # Restart espanso without the startup notification
-  espanso stop >/dev/null 2>&1
-  sleep 0.3
-  espanso start --unmanaged >/dev/null 2>&1
+log() {
+  printf 'espanso-layout-sync: %s\n' "$*" >&2
 }
 
-socat -u "UNIX-CONNECT:$SOCKET" - | while IFS= read -r line; do
-  # Only react to the real keyboard, ignore virtual ones
-  case "$line" in
-    activelayout\>\>"$KEYBOARD"*Dvorak*)
-      update_espanso_layout "dvorak"
+is_typed_keyboard() {
+  case "$1" in
+    hl-virtual-keyboard*|espanso-virtual-device*|power-button|sleep-button|lid-switch|video-bus|uniwill-wmi-hotkeys)
+      return 1
       ;;
-    activelayout\>\>"$KEYBOARD",*)
-      update_espanso_layout '""'
+    *)
+      return 0
       ;;
   esac
+}
+
+keyboard_record() {
+  local preferred="${1:-}"
+  local devices
+
+  devices="$(hyprctl devices -j 2>/dev/null)" || return 1
+  [[ -n "$devices" ]] || return 1
+
+  jq -r --arg preferred "$preferred" '
+    def typed:
+      (.name // "") as $name
+      | ($name | test("^(hl-virtual-keyboard|espanso-virtual-device|power-button$|sleep-button$|lid-switch$|video-bus$|uniwill-wmi-hotkeys$)"; "i") | not);
+
+    [.keyboards[]? | select(typed)] as $typed
+    | [
+        ($typed[] | select(.name == $preferred)),
+        ($typed[] | select(.name == "keyd-virtual-keyboard")),
+        ($typed[] | select(.main == true)),
+        ($typed | max_by(.active_layout_index // 0))
+      ]
+    | map(select(. != null))
+    | .[0]
+    | select(. != null)
+    | [.name, ((.active_layout_index // 0) | tostring)]
+    | @tsv
+  ' <<<"$devices"
+}
+
+align_espanso_keyboard() {
+  local layout_index="$1"
+  local devices keyboard_name
+
+  devices="$(hyprctl devices -j 2>/dev/null)" || return 0
+  [[ -n "$devices" ]] || return 0
+  keyboard_name="$(
+    jq -r '.keyboards[]? | select(.name == "espanso-virtual-device") | .name' <<<"$devices" \
+      | head -n 1
+  )"
+
+  if [[ -n "$keyboard_name" ]]; then
+    hyprctl switchxkblayout "$keyboard_name" "$layout_index" >/dev/null 2>&1 || true
+  fi
+}
+
+wait_for_espanso_keyboard() {
+  local layout_index="$1"
+  local attempt devices keyboard_name
+
+  for ((attempt = 0; attempt < 30; attempt++)); do
+    devices="$(hyprctl devices -j 2>/dev/null || true)"
+    if [[ -z "$devices" ]]; then
+      sleep 0.05
+      continue
+    fi
+
+    keyboard_name="$(
+      jq -r '.keyboards[]? | select(.name == "espanso-virtual-device") | .name' <<<"$devices" \
+        | head -n 1
+    )"
+
+    if [[ -n "$keyboard_name" ]] \
+      && hyprctl switchxkblayout "$keyboard_name" "$layout_index" >/dev/null 2>&1; then
+      return 0
+    fi
+
+    sleep 0.05
+  done
+
+  log "Espanso's virtual keyboard did not appear after its service restart"
+  return 1
+}
+
+select_profile_locked() {
+  local layout_index="$1"
+  local profile_name relative_target profile_path current_target applied_target temp_selector
+
+  case "$layout_index" in
+    0)
+      profile_name="dvorak.yml"
+      ;;
+    1)
+      profile_name="qwerty.yml"
+      ;;
+    *)
+      log "refusing unsupported Hyprland layout index: $layout_index"
+      return 1
+      ;;
+  esac
+
+  profile_path="$espanso_profiles_dir/$profile_name"
+  relative_target="../profiles/$profile_name"
+
+  if [[ ! -f "$profile_path" ]]; then
+    log "missing Stow-owned profile: $profile_path"
+    return 1
+  fi
+
+  # A folded Stow directory would make runtime state writes land in the repo.
+  if [[ -L "$espanso_root" || -L "$espanso_config_dir" ]]; then
+    log "refusing to write through a folded Stow directory; restow Espanso with --no-folding"
+    return 1
+  fi
+
+  mkdir -p "$espanso_config_dir"
+
+  current_target="$(readlink -- "$espanso_selector" 2>/dev/null || true)"
+  if [[ "$current_target" != "$relative_target" ]]; then
+    if [[ -e "$espanso_selector" && ! -L "$espanso_selector" ]]; then
+      log "refusing to replace non-symlink selector: $espanso_selector"
+      return 1
+    fi
+
+    temp_selector="$espanso_config_dir/.default.yml.$$.${RANDOM}.tmp"
+    ln -s "$relative_target" "$temp_selector"
+    if ! mv -Tf "$temp_selector" "$espanso_selector"; then
+      rm -f -- "$temp_selector"
+      return 1
+    fi
+
+    log "selected $profile_name for Hyprland layout index $layout_index"
+  fi
+
+  applied_target=""
+  if [[ -r "$applied_state" ]]; then
+    IFS= read -r applied_target <"$applied_state" || true
+  fi
+  if [[ "$applied_target" == "$relative_target" ]]; then
+    align_espanso_keyboard "$layout_index"
+    return 0
+  fi
+
+  if ! command -v espanso >/dev/null 2>&1; then
+    return 0
+  fi
+
+  if ! espanso service status >/dev/null 2>&1; then
+    return 0
+  fi
+
+  if ! espanso service restart >/dev/null 2>&1; then
+    log "failed to restart the managed Espanso service"
+    return 1
+  fi
+
+  printf '%s\n' "$relative_target" >"$applied_state"
+  wait_for_espanso_keyboard "$layout_index" || true
+  return 0
+}
+
+sync_current_layout() (
+  local preferred="${1:-}"
+  local record keyboard_name layout_index
+  local sync_fd
+
+  exec {sync_fd}>"$sync_lock"
+  flock "$sync_fd"
+
+  if ! record="$(keyboard_record "$preferred")" || [[ -z "$record" ]]; then
+    log "could not find a typed Hyprland keyboard"
+    return 1
+  fi
+
+  IFS=$'\t' read -r keyboard_name layout_index <<<"$record"
+  select_profile_locked "$layout_index"
+)
+
+toggle_layout() (
+  local record keyboard_name previous_index current_record current_name current_index
+  local sync_fd
+
+  exec {sync_fd}>"$sync_lock"
+  flock "$sync_fd"
+
+  if ! record="$(keyboard_record)" || [[ -z "$record" ]]; then
+    log "could not find a typed Hyprland keyboard"
+    return 1
+  fi
+
+  IFS=$'\t' read -r keyboard_name previous_index <<<"$record"
+  if ! hyprctl switchxkblayout all next >/dev/null; then
+    log "failed to switch Hyprland keyboard layouts"
+    return 1
+  fi
+
+  # The binding fires on Right Alt release. Give the other Alt key time to
+  # release before Espanso snapshots modifier state in its new worker.
+  sleep 0.2
+
+  if ! current_record="$(keyboard_record "$keyboard_name")" || [[ -z "$current_record" ]]; then
+    log "could not read layout after switching $keyboard_name"
+    return 1
+  fi
+
+  IFS=$'\t' read -r current_name current_index <<<"$current_record"
+  if [[ "$current_index" == "$previous_index" ]]; then
+    log "Hyprland did not advance the layout for $current_name"
+    return 1
+  fi
+
+  select_profile_locked "$current_index"
+)
+
+run_listener() {
+  local socket line payload keyboard_name
+  local listener_fd
+
+  if ! command -v socat >/dev/null 2>&1; then
+    log "socat is required to watch Hyprland layout changes"
+    return 1
+  fi
+
+  if [[ -z "$hypr_runtime_dir" ]]; then
+    log "XDG_RUNTIME_DIR is required to watch Hyprland layout changes"
+    return 1
+  fi
+
+  exec {listener_fd}>"$listener_lock"
+  if ! flock -n "$listener_fd"; then
+    return 0
+  fi
+
+  sync_current_layout || true
+
+  while true; do
+    if [[ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]]; then
+      sleep 1
+      continue
+    fi
+
+    socket="$hypr_runtime_dir/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock"
+    if [[ ! -S "$socket" ]]; then
+      sleep 1
+      continue
+    fi
+
+    while IFS= read -r line; do
+      case "$line" in
+        activelayout\>\>*)
+          payload="${line#activelayout>>}"
+          keyboard_name="${payload%%,*}"
+
+          if ! is_typed_keyboard "$keyboard_name"; then
+            continue
+          fi
+
+          # switchxkblayout can emit a burst for several devices. The shared
+          # lock and selector check collapse the burst into one service restart.
+          sleep 0.2
+          sync_current_layout "$keyboard_name" || true
+          ;;
+      esac
+    done < <(socat -u "UNIX-CONNECT:$socket" - 2>/dev/null)
+
+    sleep 1
+  done
+}
+
+for required_command in flock hyprctl jq; do
+  if ! command -v "$required_command" >/dev/null 2>&1; then
+    log "$required_command is required"
+    exit 1
+  fi
 done
+
+umask 077
+mkdir -p "$lock_dir"
+
+case "${1:-}" in
+  "")
+    run_listener
+    ;;
+  --once)
+    sync_current_layout
+    ;;
+  --toggle)
+    toggle_layout
+    ;;
+  *)
+    printf 'Usage: %s [--once|--toggle]\n' "${0##*/}" >&2
+    exit 2
+    ;;
+esac

@@ -6,17 +6,16 @@
 
 | Package | Description |
 |---------|-------------|
-| `hyprland` | Hyprland window manager overrides (autostart, bindings, hyprsunset, input, monitors, look & feel, recording-mode script, teleprompter-recording script, off-screen-window rescue script, espanso-layout-sync listener) |
+| `hyprland` | Hyprland window manager overrides (Quattro Lua monitor, input, hotkey, and autostart config; recording, teleprompter, off-screen-window, and Espanso layout-sync helpers) |
 | `fastfetch` | System info display |
 | `voxtype` | Voice-to-text config |
 | `xcompose` | Custom compose sequences (umlauts, shortcuts, emoji via Omarchy defaults) |
-| `espanso` | Text expansion macros (e.g. `::rtc` for reasoning chain prompt) with Dvorak/QWERTY keyboard_layout support |
+| `espanso` | Text expansion macros (e.g. `::rtc` for reasoning chain prompt) with immutable Dvorak/QWERTY profiles selected at runtime by the Hyprland layout-sync helper |
 | `agents` | Canonical global agent instructions (`~/.agents/AGENTS.md`) shared by Claude, Codex, and Grok |
-| `claude` | Claude Code global user settings (permissions, attribution, hooks); `CLAUDE.md` is a symlink to `~/.agents/AGENTS.md` |
-| `codex` | Codex CLI sandbox and approval defaults; `AGENTS.md` is a symlink to `~/.agents/AGENTS.md` |
+| `claude` | Claude Code global user settings and Omarchy notification hook; `CLAUDE.md` is a symlink to `~/.agents/AGENTS.md` |
+| `codex` | Codex CLI model, sandbox, approval, status-line, and desktop-notification settings; `AGENTS.md` is a symlink to `~/.agents/AGENTS.md` |
 | `grok` | Grok Build global instructions (`AGENTS.md` symlink to `~/.agents/AGENTS.md`). Permission mode is set by `install-grok.sh` in omarchy-supplement |
 | `cursor` | Cursor editor keybindings (smart select expand/shrink) and settings (keyCode dispatch for Wayland keyboard layout fix) |
-| `xdg` | Default terminal preference |
 | `wireplumber` | PipeWire session manager rules (demote Sony ZV-E1 camera audio so real mics always win default-source selection) |
 
 ### Global agent instructions
@@ -35,28 +34,40 @@ Stow **`agents` before** `claude` / `codex` / `grok` so the real file exists whe
 
 ```bash
 cd ~/dev/dotfiles
-stow -t ~ <package>
+stow --no-folding --target "$HOME" <package>
 ```
 
 To apply all packages:
 
 ```bash
-for pkg in agents claude codex grok cursor hyprland fastfetch voxtype xcompose xdg espanso wireplumber; do
-  stow -t ~ "$pkg"
+for pkg in agents claude codex grok cursor hyprland fastfetch voxtype xcompose espanso wireplumber; do
+  stow --no-folding --target "$HOME" "$pkg"
 done
 ```
 
+For an existing Omarchy installation, prefer `install-dotfiles.sh` from
+[`omarchy-supplement`](https://github.com/janhesters/omarchy-supplement). It
+backs up conflicting files, unfolds older Stow trees, creates Espanso's runtime
+profile selector, and reloads the desktop safely. On a clean manual install,
+initialize Espanso and start the listener for the current session after stowing:
+
+```bash
+espanso service check >/dev/null 2>&1 || espanso service register
+~/.config/hypr/scripts/espanso-layout-sync --once
+if ! espanso service status >/dev/null 2>&1; then
+  espanso service start
+  ~/.config/hypr/scripts/espanso-layout-sync --once
+fi
+uwsm-app -- ~/.config/hypr/scripts/espanso-layout-sync
+```
+
+The listener also starts automatically at the next Hyprland login.
+
 ## Notes
 
-- `hyprland.conf` is intentionally excluded — Omarchy owns it.
+- `hyprland.lua` is intentionally excluded — Omarchy owns the entry point.
 - `.gitconfig` and `.zshrc` are managed by Omarchy.
-- These configs are **overrides** on top of Omarchy defaults. Omarchy's `hyprland.conf` sources its defaults first, then these user files, so only changed values need to be specified.
-- Files identical to the Omarchy template (alacritty, hypridle, hyprlock, xdph, waybar) are intentionally excluded so they continue receiving Omarchy updates. Waybar's language module is added by `install-keyboard-layout.sh` in the supplement repo.
-
-## Pending upstream PRs
-
-These overrides are temporary fallbacks for features submitted upstream. **AI: check each PR's status before working on this repo — if merged, remove the corresponding override.**
-
-| PR | Override files | Description |
-|----|---------------|-------------|
-| [basecamp/omarchy#5096](https://github.com/basecamp/omarchy/pull/5096) | `hyprland/.config/hypr/bindings.conf` (screenshot bindings), `hyprland/.config/hypr/scripts/screenshot-activewindow` | Keyboard-only screenshot bindings: Super+Shift+Ctrl+C (active window), Super+Alt+C (full screen) |
+- Default applications are shared state managed by the supplement through `omarchy default`, not Stow symlinks.
+- These Lua modules are **overrides** loaded after Omarchy's Quattro defaults, so they contain only personal changes.
+- Files identical to the Omarchy template are intentionally excluded so they continue receiving Omarchy updates. The supplement adds the keyboard-layout widget to the Quattro shell bar.
+- `~/.config/espanso/config/default.yml` is intentionally runtime state rather than a tracked file. `install-dotfiles.sh` uses `stow --no-folding`, and the layout-sync helper atomically points it at the active profile without modifying the repository.

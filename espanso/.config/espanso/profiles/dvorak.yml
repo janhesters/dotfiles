@@ -1,0 +1,11 @@
+# Espanso reads this profile through ~/.config/espanso/config/default.yml.
+# The selector symlink is switched at runtime; this file remains Stow-owned.
+
+toggle_key: OFF
+search_shortcut: ALT+SHIFT+SPACE
+auto_restart: false
+
+keyboard_layout:
+  layout: us
+  variant: dvorak
+  options: compose:paus

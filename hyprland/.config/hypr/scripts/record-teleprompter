@@ -3,7 +3,7 @@
 # Toggle screen recording of the Elgato Prompter (teleprompter) monitor, with an
 # audio-source menu mirroring omarchy's Super+Ctrl+C screenrecord options.
 #
-# Why this exists instead of omarchy-capture-screenrecording: the Elgato Prompter
+# Why this exists instead of Omarchy's screen recorder: the Elgato Prompter
 # is a DisplayLink/evdi *virtual* display. gpu-screen-recorder can't capture it —
 # its kms backend can't see evdi outputs ("display not found"), and its portal
 # backend fails the EGL DMA-BUF modifier import on this AMD box. wf-recorder uses
@@ -18,15 +18,34 @@
 # are stitched into ONE continuous video: the gap is filled with the frozen last
 # frame + silence, so the video freezes over the drop and then keeps going.
 
-STATE=/tmp/record-teleprompter.modules   # PipeWire module IDs to tear down on stop
-WATCHDOG=/tmp/record-teleprompter.watchdog   # watchdog PID, killed on toggle-stop
-WAITING=/tmp/record-teleprompter.waiting   # exists while waiting for the prompter to
-                                           # reconnect (waybar shows an orange glyph)
-SEGMENTS=/tmp/record-teleprompter.segments   # files of the current session, in order
-LOG=/tmp/record-teleprompter.log
+notify() {
+  local glyph=$1
+  shift
+  omarchy notification send -g "$glyph" "$@"
+}
 
-notify() { omarchy notification send "$@"; }
-refresh_waybar() { pkill -RTMIN+8 waybar 2>/dev/null; }   # signal 8 = screenrecording-indicator
+# Keep session state private to this login. Besides avoiding cross-user clashes,
+# XDG_RUNTIME_DIR is cleared when the user session ends, so stale PID files do
+# not survive a reboot and later point at recycled processes.
+if [[ -z ${XDG_RUNTIME_DIR:-} || ! -d $XDG_RUNTIME_DIR || ! -O $XDG_RUNTIME_DIR ]]; then
+  notify "󰕧" "Teleprompter recording unavailable" "XDG_RUNTIME_DIR is missing or not owned by this user" -u critical
+  exit 1
+fi
+
+RUNTIME_DIR="$XDG_RUNTIME_DIR/record-teleprompter"
+if [[ -L $RUNTIME_DIR ]]; then
+  notify "󰕧" "Teleprompter recording unavailable" "$RUNTIME_DIR must not be a symlink" -u critical
+  exit 1
+fi
+mkdir -p -- "$RUNTIME_DIR" || exit 1
+chmod 700 -- "$RUNTIME_DIR" || exit 1
+
+STATE="$RUNTIME_DIR/audio-modules"       # PipeWire module IDs to tear down on stop
+WATCHDOG="$RUNTIME_DIR/watchdog.pid"     # watchdog PID, killed on toggle-stop
+RECORDER="$RUNTIME_DIR/recorder.pid"     # owned wf-recorder PID + session token
+WAITING="$RUNTIME_DIR/waiting"           # exists while waiting for the prompter to reconnect
+SEGMENTS="$RUNTIME_DIR/segments"         # files of the current session, in order
+LOG="$RUNTIME_DIR/wf-recorder.log"
 
 teardown_audio() {
   if [[ -f $STATE ]]; then
@@ -36,7 +55,7 @@ teardown_audio() {
 }
 
 # The evdi connector name (e.g. DVI-I-2) can change across reconnects, so always
-# resolve the output by description (monitors.conf matches the same way).
+# resolve the output by description (monitors.lua matches the same way).
 find_output() {
   hyprctl monitors -j | jq -r '.[] | select(.description | test("Elgato Prom")) | .name' | head -1
 }
@@ -46,7 +65,26 @@ find_output() {
 watchdog_alive() {
   local pid
   [[ -f $WATCHDOG ]] && pid=$(<"$WATCHDOG") || return 1
-  [[ -d /proc/$pid ]] && grep -aq record-teleprompter "/proc/$pid/cmdline" 2>/dev/null
+  [[ $pid =~ ^[0-9]+$ && -d /proc/$pid && -O /proc/$pid ]] \
+    && grep -aq record-teleprompter "/proc/$pid/cmdline" 2>/dev/null
+}
+
+# Match the recorder by both its PID and a private token injected into the
+# process environment. A stale PID file therefore cannot make us signal an
+# unrelated wf-recorder after Linux recycles the PID.
+recorder_process_matches() {
+  local pid=$1 session=$2 comm
+  [[ $pid =~ ^[0-9]+$ && $session =~ ^[[:alnum:]-]+$ ]] || return 1
+  [[ -d /proc/$pid && -O /proc/$pid ]] || return 1
+  read -r comm <"/proc/$pid/comm" 2>/dev/null || return 1
+  [[ $comm == wf-recorder ]] || return 1
+  grep -Fzqx -- "RECORD_TELEPROMPTER_SESSION=$session" "/proc/$pid/environ" 2>/dev/null
+}
+
+recorder_alive() {
+  local pid session
+  [[ -f $RECORDER ]] && read -r pid session <"$RECORDER" || return 1
+  recorder_process_matches "$pid" "$session"
 }
 
 # Stop wf-recorder and make sure it is actually gone. SIGINT lets it write the
@@ -54,24 +92,47 @@ watchdog_alive() {
 # exit (encoder done, file closed, process ignores SIGTERM). So: SIGINT, wait,
 # and once it has closed the mp4 (finalized, nothing left to lose) force-kill.
 stop_recorder() {
-  local pid
-  pid=$(pgrep -ox wf-recorder) || return 0
+  local pid session
+  if ! [[ -f $RECORDER ]] || ! read -r pid session <"$RECORDER" \
+    || ! recorder_process_matches "$pid" "$session"; then
+    rm -f -- "$RECORDER"
+    return 0
+  fi
+
   kill -INT "$pid" 2>/dev/null
-  for _ in $(seq 1 50); do kill -0 "$pid" 2>/dev/null || return 0; sleep 0.1; done
+  for _ in $(seq 1 50); do
+    if ! recorder_process_matches "$pid" "$session"; then
+      rm -f -- "$RECORDER"
+      return 0
+    fi
+    sleep 0.1
+  done
   for _ in $(seq 1 100); do
+    recorder_process_matches "$pid" "$session" || break
     readlink "/proc/$pid"/fd/* 2>/dev/null | grep -q '\.mp4$' || break
     sleep 0.1
   done
-  kill -KILL "$pid" 2>/dev/null
-  for _ in $(seq 1 10); do kill -0 "$pid" 2>/dev/null || break; sleep 0.1; done
+  recorder_process_matches "$pid" "$session" && kill -KILL "$pid" 2>/dev/null
+  for _ in $(seq 1 10); do
+    recorder_process_matches "$pid" "$session" || break
+    sleep 0.1
+  done
+  rm -f -- "$RECORDER"
 }
 
 # Start a new recording segment on output $1; sets FILE. audio_args must be set.
 start_recorder() {
+  local pid
   FILE="$OUTPUT_DIR/teleprompter-$(date +'%Y-%m-%d_%H-%M-%S').mp4"
+  if [[ -z ${SESSION_ID:-} ]]; then
+    read -r SESSION_ID </proc/sys/kernel/random/uuid || return 1
+  fi
   # -r 30 forces constant 30fps; wf-recorder is damage-based, so a static/paused
   # teleprompter screen would otherwise emit almost no frames (zero-duration clip).
-  wf-recorder -o "$1" -r 30 "${audio_args[@]}" -f "$FILE" >"$LOG" 2>&1 &
+  RECORD_TELEPROMPTER_SESSION="$SESSION_ID" \
+    wf-recorder -o "$1" -r 30 "${audio_args[@]}" -f "$FILE" >"$LOG" 2>&1 &
+  pid=$!
+  printf '%s %s\n' "$pid" "$SESSION_ID" >"$RECORDER"
 }
 
 # Epoch seconds of a segment's start, parsed from its filename timestamp.
@@ -90,7 +151,7 @@ segment_start() {
 # are kept next to the stitched file in case anything goes wrong.
 stitch_session() {
   local manifest=$1 workdir out list
-  workdir=$(mktemp -d /tmp/record-teleprompter-stitch.XXXXXX) || return 1
+  workdir=$(mktemp -d "$RUNTIME_DIR/stitch.XXXXXX") || return 1
   mv "$manifest" "$workdir/manifest"
   local segs=()
   while read -r f; do [[ -f $f ]] && segs+=("$f"); done <"$workdir/manifest"
@@ -155,17 +216,16 @@ finish_session() {
 
 # --- Already recording (or waiting to resume)? Stop everything, finalize, tear
 # down any audio mix. Kill the watchdog FIRST so it can't restart the recorder. ---
-if pgrep -x wf-recorder >/dev/null || watchdog_alive; then
+if recorder_alive || watchdog_alive; then
   watchdog_alive && kill "$(<"$WATCHDOG")" 2>/dev/null
   rm -f "$WATCHDOG" "$WAITING"
   stop_recorder
   teardown_audio
-  refresh_waybar
   notify "󰓛" "Teleprompter recording stopped" "Saved to ~/Videos"
   finish_session
   exit 0
 fi
-rm -f "$WATCHDOG" "$WAITING" "$SEGMENTS"   # stale files from a crashed run
+rm -f "$WATCHDOG" "$RECORDER" "$WAITING" "$SEGMENTS"   # stale files from a crashed run
 
 OUTPUT=$(find_output)
 if [[ -z $OUTPUT ]]; then
@@ -174,12 +234,11 @@ if [[ -z $OUTPUT ]]; then
 fi
 
 # --- Audio source menu (mirrors omarchy's screenrecord options). ---
-choice=$(printf '%s\n' \
-  "󰍭  No audio" \
-  "  Microphone" \
-  "  Desktop audio" \
-  "  Desktop + microphone" \
-  | walker --dmenu -p "Record teleprompter")
+choice=$(omarchy menu select "Record teleprompter" \
+  $'󰍭\tNo audio' \
+  $'\tMicrophone' \
+  $'󰕾\tDesktop audio' \
+  $'󰍬\tDesktop + microphone')
 [[ -z $choice ]] && exit 0   # menu cancelled
 
 teardown_audio   # clear any stale modules from a previous crashed run
@@ -213,11 +272,11 @@ mkdir -p "$OUTPUT_DIR"
 start_recorder "$OUTPUT"
 sleep 0.6
 
-if pgrep -x wf-recorder >/dev/null; then
+if recorder_alive; then
   printf '%s\n' "$FILE" >"$SEGMENTS"
-  refresh_waybar
-  notify "󰕧" "Teleprompter recording started" "${choice#*  } · $(basename "$FILE")"
+  notify "󰕧" "Teleprompter recording started" "$choice · $(basename "$FILE")"
 else
+  rm -f "$RECORDER"
   teardown_audio
   notify "󰕧" "Teleprompter recording failed" "See $LOG" -u critical
   exit 1
@@ -227,12 +286,11 @@ fi
 # until toggle-stop kills it (via $WATCHDOG) or the recorder ends on its own. ---
 (
   while sleep 3; do
-    if ! pgrep -x wf-recorder >/dev/null; then
+    if ! recorder_alive; then
       # Recorder died on its own (toggle-stop kills this watchdog first, so this
       # is a crash) — clean up and tell the user rather than failing silently.
       teardown_audio
-      refresh_waybar
-      rm -f "$WATCHDOG"
+      rm -f "$WATCHDOG" "$RECORDER"
       notify "󰕧" "Teleprompter recording ended unexpectedly" "See $LOG" -u critical
       finish_session
       exit 0
@@ -243,7 +301,6 @@ fi
     # now instead of letting wf-recorder record nothing against a dead output.
     stop_recorder
     touch "$WAITING"
-    refresh_waybar
     notify "󰕧" "Prompter disconnected" "Segment saved: $(basename "$FILE") — will resume automatically" -u critical
 
     OUTPUT=""
@@ -255,7 +312,6 @@ fi
     if [[ -z $OUTPUT ]]; then
       teardown_audio
       rm -f "$WATCHDOG" "$WAITING"
-      refresh_waybar
       notify "󰕧" "Teleprompter recording ended" "Prompter did not reconnect within 2 min" -u critical
       finish_session
       exit 1
@@ -264,20 +320,18 @@ fi
     sleep 2   # let the reconnected output settle before capturing
     start_recorder "$OUTPUT"
     sleep 0.6
-    if pgrep -x wf-recorder >/dev/null; then
+    if recorder_alive; then
       printf '%s\n' "$FILE" >>"$SEGMENTS"
       rm -f "$WAITING"
-      refresh_waybar
       notify "󰕧" "Teleprompter recording resumed" "$(basename "$FILE")"
     else
       teardown_audio
-      rm -f "$WATCHDOG" "$WAITING"
-      refresh_waybar
+      rm -f "$WATCHDOG" "$RECORDER" "$WAITING"
       notify "󰕧" "Teleprompter resume failed" "See $LOG" -u critical
       finish_session
       exit 1
     fi
   done
 ) &
-echo $! >"$WATCHDOG"
+printf '%s\n' "$!" >"$WATCHDOG"
 disown

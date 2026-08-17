@@ -216,8 +216,8 @@ toggle_layout() (
     return 1
   fi
 
-  # The binding fires on Right Alt release. Give the other Alt key time to
-  # release before Espanso snapshots modifier state in its new worker.
+  # Give both Alt keys time to be released before Espanso snapshots modifier
+  # state in its new worker.
   sleep 0.2
 
   if ! current_record="$(keyboard_record "$keyboard_name")" || [[ -z "$current_record" ]]; then

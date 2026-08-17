@@ -52,8 +52,8 @@ PY
 count=0
 while read -r addr x y; do
     [ -z "$addr" ] && continue
-    hyprctl dispatch focuswindow "address:$addr" >/dev/null
-    hyprctl dispatch moveactive exact "$x" "$y" >/dev/null
+    hyprctl dispatch "hl.dsp.focus({ window = \"address:$addr\" })" >/dev/null
+    hyprctl dispatch "hl.dsp.window.move({ window = \"address:$addr\", x = $x, y = $y })" >/dev/null
     count=$((count + 1))
 done <<<"$moves"
 

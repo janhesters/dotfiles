@@ -1,0 +1,30 @@
+{
+  "defaultThreadEnvMode": "worktree",
+  "providerInstances": {
+    "claudeAgent": {
+      "driver": "claudeAgent",
+      "accentColor": "#ea580c",
+      "enabled": true,
+      "config": {
+        "enabled": true,
+        "binaryPath": "claude",
+        "homePath": "",
+        "customModels": [],
+        "launchArgs": ""
+      }
+    },
+    "codex": {
+      "driver": "codex",
+      "accentColor": "#2563eb",
+      "enabled": true,
+      "config": {
+        "enabled": true,
+        "binaryPath": "codex",
+        "homePath": "",
+        "shadowHomePath": "",
+        "launchArgs": "",
+        "customModels": []
+      }
+    }
+  }
+}

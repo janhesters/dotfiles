@@ -64,6 +64,21 @@ constraint ThreadReads {
   To read or summarize a thread => get_thread(threadId) for the complete message list.
 }
 
+constraint EmailWrites {
+  Always create a Gmail draft. Never send an email, reply, or forward from an agent.
+  This rule applies even when the user says "send," "execute," "email them," or otherwise asks for immediate delivery.
+  Save the complete message as a draft and tell the user it is ready for review and manual sending.
+}
+
+constraint SalesOutreachDrafts {
+  Re-read the source material before drafting and preserve only facts it supports.
+  Never name or imply involvement from a BCC recipient unless the source explicitly says that person spoke with the recipient.
+  For Scale360 referrals, put Andre Reutlinger at andre.reutlinger@scale-360.com in BCC. BCC placement alone never authorizes mentioning him in the message.
+  Include the full approved email signature in the draft. Gmail API drafts do not add the configured signature automatically. Copy the exact signature from an approved source; never replace it with a plain-text name and title. If the approved signature is unavailable, ask before drafting.
+  Select and verify the booking link for the recipient's region. Use the UK link for UK recipients, the DACH link for DACH recipients, and the US link for US recipients. Never reuse a link from a similar email without checking the region.
+  Before saving, verify To, CC, BCC, From, subject, attribution, signature, and every link.
+}
+
 ## Printing
 
 constraint Printing {

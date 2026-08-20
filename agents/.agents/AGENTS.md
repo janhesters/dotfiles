@@ -72,11 +72,19 @@ constraint EmailWrites {
 
 constraint SalesOutreachDrafts {
   Re-read the source material before drafting and preserve only facts it supports.
-  Never name or imply involvement from a BCC recipient unless the source explicitly says that person spoke with the recipient.
-  For Scale360 referrals, put Andre Reutlinger at andre.reutlinger@scale-360.com in BCC. BCC placement alone never authorizes mentioning him in the message.
-  Include the full approved email signature in the draft. Gmail API drafts do not add the configured signature automatically. Copy the exact signature from an approved source; never replace it with a plain-text name and title. If the approved signature is unavailable, ask before drafting.
-  Select and verify the booking link for the recipient's region. Use the UK link for UK recipients, the DACH link for DACH recipients, and the US link for US recipients. Never reuse a link from a similar email without checking the region.
-  Before saving, verify To, CC, BCC, From, subject, attribution, signature, and every link.
+  Never infer who contacted a lead from a BCC recipient, referral address, or Slack thread participant.
+  Include the full approved HTML email signature with the required company and legal details. Gmail API drafts do not add the configured signature automatically. Copy the exact signature from an approved source; never replace it with a plain-text name and title. If the approved signature is unavailable, ask before drafting.
+  Save a professionally formatted HTML draft and inspect the result. Confirm that paragraphs, lists, links, and the complete signature render correctly.
+  Before saving, verify To, CC, BCC, From, subject, attribution, pricing, currency, signature, formatting, and every link.
+}
+
+constraint Scale360EmailDrafts {
+  Apply these rules to every email based on Scale360 outreach or a Scale360 referral.
+  Put Andre Reutlinger at andre.reutlinger@scale-360.com in BCC. Never put him in To or CC.
+  Never mention Andre Reutlinger by name in the email, even when he made the call. Use "a colleague" when the source supports that attribution; otherwise omit the attribution.
+  Select and verify the booking link for the outreach market. Use the UK link for UK outreach, the DACH link for DACH outreach, and the US link for US outreach. Never reuse a link from a similar email without checking the market.
+  The approved standard rates include EUR 75 and USD 85. Match the rate and currency to the approved market-specific source. Never convert, substitute, or copy pricing from another market.
+  If an earlier email contains an error, stop and ask the user what to do. Never create a correction email unless the user explicitly requests one after reviewing the situation.
 }
 
 ## Printing

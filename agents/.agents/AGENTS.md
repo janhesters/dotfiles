@@ -82,6 +82,8 @@ constraint Scale360EmailDrafts {
   Apply these rules to every email based on Scale360 outreach or a Scale360 referral.
   Put Andre Reutlinger at andre.reutlinger@scale-360.com in BCC. Never put him in To or CC.
   Never mention Andre Reutlinger by name in the email, even when he made the call. Use "a colleague" when the source supports that attribution; otherwise omit the attribution.
+  Attach two relevant, approved, anonymized developer CVs to every draft. Mention them in the email as example profiles, never as developers already assigned to the recipient or confirmed candidates for the role.
+  Verify that each CV removes the developer's name and other direct identifiers from the visible content, filename, and document metadata. If approved anonymized CVs are unavailable, ask the user instead of attaching named CVs.
   Select and verify the booking link for the outreach market. Use the UK link for UK outreach, the DACH link for DACH outreach, and the US link for US outreach. Never reuse a link from a similar email without checking the market.
   The approved standard rates include EUR 75 and USD 85. Match the rate and currency to the approved market-specific source. Never convert, substitute, or copy pricing from another market.
   If an earlier email contains an error, stop and ask the user what to do. Never create a correction email unless the user explicitly requests one after reviewing the situation.

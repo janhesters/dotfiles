@@ -1,8 +1,8 @@
 local hypr_scripts = (os.getenv("XDG_CONFIG_HOME") or ((os.getenv("HOME") or "") .. "/.config")) .. "/hypr/scripts/"
 
--- Switch only after Right Alt is released. The helper keeps Hyprland and
--- Espanso on the same single-layout profile.
-o.bind("ALT + Alt_R", "Toggle Dvorak/QWERTY", hypr_scripts .. "keyboard-layout-toggle", { release = true })
+-- Switch as soon as both Alt keys are down, regardless of which one is
+-- released first. The helper keeps Hyprland and Espanso in sync.
+o.bind("ALT + Alt_R", "Toggle Dvorak/QWERTY", hypr_scripts .. "keyboard-layout-toggle")
 
 -- Restore personal application choices that differ from Quattro's defaults.
 hl.unbind("SUPER + SHIFT + A")

@@ -7,3 +7,5 @@ matches:
     replace: "Please load and use the aidd-review skill from `~/dev/aidd-jan` to review this PR. Then post the review as a comment."
   - trigger: "::pdc"
     replace: "Please load and use the aidd-pr-discuss skill from `~/dev/aidd-jan` to review this PR: "
+  - trigger: "::rrm"
+    replace: "We're receiving a review soon. Please create a monitor that watches every 10 minutes for that review. Once it comes in, delete the monitor. Then push another commit addressing the review, i.e. implement the changes you agree with. Reply here if you didn't implement something because you disagree."

@@ -40,6 +40,8 @@ keyboard_record() {
   devices="$(hyprctl devices -j 2>/dev/null)" || return 1
   [[ -n "$devices" ]] || return 1
 
+  # Peripheral keyboards also emit layout events. Follow the typing keyboard
+  # so reconnecting a pedal or mouse cannot select a different Espanso profile.
   jq -r --arg preferred "$preferred" '
     def typed:
       (.name // "") as $name
@@ -47,9 +49,9 @@ keyboard_record() {
 
     [.keyboards[]? | select(typed)] as $typed
     | [
-        ($typed[] | select(.name == $preferred)),
         ($typed[] | select(.name == "keyd-virtual-keyboard")),
         ($typed[] | select(.main == true)),
+        ($typed[] | select(.name == $preferred)),
         ($typed | max_by(.active_layout_index // 0))
       ]
     | map(select(. != null))

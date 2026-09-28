@@ -19,10 +19,9 @@ FILEPATH="$OUTPUT_DIR/$FILENAME"
 grim -g "$SELECTION" "$FILEPATH" || exit 1
 wl-copy --type image/png <"$FILEPATH"
 
-printf -v EDIT_COMMAND 'tensaku-edit %q' "$FILEPATH"
 omarchy notification send \
-  --image "$FILEPATH" \
-  --exec "$EDIT_COMMAND" \
   "Screenshot saved to clipboard and file" \
   "Click to edit in Tensaku" \
-  -t 10000 || true
+  --image "$FILEPATH" \
+  -t 10000 \
+  --exec tensaku-edit "$FILEPATH" || true

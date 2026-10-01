@@ -11,8 +11,8 @@
 | `voxtype` | Voice-to-text config |
 | `xcompose` | Custom compose sequences (umlauts, shortcuts, emoji via Omarchy defaults) |
 | `espanso` | Text expansion macros (e.g. `::rtc` for reasoning chain prompt) with immutable Dvorak/QWERTY profiles selected at runtime by the Hyprland layout-sync helper |
-| `agents` | Canonical global agent instructions (`~/.agents/AGENTS.md`) shared by Claude, Codex, and Grok |
-| `claude` | Claude Code global user settings and Omarchy notification hook; `CLAUDE.md` is a symlink to `~/.agents/AGENTS.md` |
+| `agents` | Shared global agent instructions (`~/.agents/AGENTS.md`) and personal skills (`~/.agents/skills/`) |
+| `claude` | Claude Code global settings, notification hook, and links to shared instructions and personal skills |
 | `codex` | Codex CLI model, sandbox, approval, status-line, and desktop-notification settings; `AGENTS.md` is a symlink to `~/.agents/AGENTS.md` |
 | `t3` | T3 Code global thread workspace default and provider settings |
 | `grok` | Grok Build global instructions (`AGENTS.md` symlink to `~/.agents/AGENTS.md`). Permission mode is set by `install-grok.sh` in omarchy-supplement |
@@ -30,6 +30,30 @@ Tool-facing names are symlinks into that file (relative targets that resolve aft
 - `~/.grok/AGENTS.md` → `../.agents/AGENTS.md`
 
 Stow **`agents` before** `claude` / `codex` / `grok` so the real file exists when the links are created. Edit only `agents/.agents/AGENTS.md` (or `~/.agents/AGENTS.md` after stow).
+
+### Global email skill
+
+`agents/.agents/skills/aidd-email-writing/` owns the email rules in English.
+The shared global instructions load its `SKILL.md` whenever an agent writes,
+replies to, revises, or reviews an email. Gmail draft and send-confirmation
+rules live in its `references/gmail.sudo.md`.
+
+Stow exposes the same skill to both tools:
+
+- Codex: `~/.agents/skills/aidd-email-writing/`
+- Claude Code: `~/.claude/skills/aidd-email-writing/`, linked through the
+  `claude` package to the same directory in the `agents` package.
+
+Both tools support symlinked skill folders. Keep the global `CLAUDE.md` link:
+Claude Code documents `~/.claude/CLAUDE.md` as its user instruction file.
+The telemetry-related `AGENTS.md` loading issue was fixed in Claude Code
+2.1.281. See the [Codex skill locations](https://learn.chatgpt.com/docs/build-skills),
+[Claude skill locations](https://code.claude.com/docs/en/skills), and
+[Claude instruction loading](https://code.claude.com/docs/en/memory).
+
+Edit the canonical skill in the `agents` package so both tools receive the
+same changes. Local links apply to projects on this machine; Claude Cowork
+and cloud sessions require account-enabled or committed project skills.
 
 ## Usage
 

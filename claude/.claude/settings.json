@@ -1,13 +1,12 @@
 {
-  "permissions": {
-    "defaultMode": "auto"
-  },
   "attribution": {
     "commit": "",
     "pr": ""
   },
-  "showClearContextOnPlanAccept": true,
-  "agentPushNotifEnabled": true,
+  "permissions": {
+    "defaultMode": "auto"
+  },
+  "model": "opus",
   "hooks": {
     "Notification": [
       {
@@ -19,5 +18,15 @@
         ]
       }
     ]
-  }
+  },
+  "enabledPlugins": {
+    "figma@claude-plugins-official": true
+  },
+  "modelSettings": {
+    "claude-opus-5-5": {
+      "effortLevel": "xhigh"
+    }
+  },
+  "showClearContextOnPlanAccept": true,
+  "agentPushNotifEnabled": true
 }

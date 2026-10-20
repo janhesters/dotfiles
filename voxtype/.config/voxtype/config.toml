@@ -41,12 +41,12 @@ max_duration_secs = 60
 # .en models are English-only but faster and more accurate for English
 # large-v3-turbo is faster than large-v3 with minimal accuracy loss (recommended for GPU)
 # Or provide absolute path to a custom .bin model file
-model = "base"
+model = "large-v3"
 
 # Language for transcription
 # Use "en" for English, "auto" for auto-detection
 # See: https://github.com/openai/whisper#available-models-and-languages
-language = "auto"
+language = ["en", "de"]
 
 # Translate non-English speech to English
 translate = false
@@ -95,3 +95,15 @@ on_transcription = false
 #
 # Custom word replacements (case-insensitive)
 # replacements = { "hyperwhisper" = "hyprwhspr" }
+
+# Case-insensitive corrections for Jan's brands and this app's name.
+# Ordinary words such as "data" and "can" are deliberately not replaced.
+[text]
+[text.replacements]
+"react squad" = "ReactSquad"
+"reactsquad" = "ReactSquad"
+"early node" = "EarlyNode"
+"earlynode" = "EarlyNode"
+"vox type" = "Voxtype"
+"voxtype" = "Voxtype"
+"rocktype" = "Voxtype"

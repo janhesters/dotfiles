@@ -15,6 +15,13 @@ constraint Drafts {
   Include the short sign-off defined in SKILL.md. Do not append an old company or legal footer by default.
 }
 
+constraint GmailReplyHistory {
+  Keep replies in the existing thread with reply_message_id.
+  create_draft can append quoted history automatically; inspect the saved body after creation or revision.
+  Remove unrequested history with update_draft, preserving recipients, reply context, and attachment MIME parts when replacing payload.
+  Re-read the saved draft before presenting or sending to verify the final body.
+}
+
 constraint EmailWrites {
   Never send an email, reply, or forward unless Jan explicitly requests sending it.
   After an explicit send request, summarize the exact messages to be sent:

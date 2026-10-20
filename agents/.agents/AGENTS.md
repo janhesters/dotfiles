@@ -4,6 +4,22 @@
 
 When unsure about the user's intent, constraints, or the best approach, ask clarifying questions rather than guessing. This applies both before starting work (e.g., before researching, fetching, or writing code) and after gathering information (e.g., when findings are ambiguous or multiple paths are viable). Prefer a short question over a wrong assumption.
 
+## Communication
+
+When drafting, replying to, revising, or reviewing communication
+for Jan, including email, Slack, Signal, and other channels,
+optimize for the recipient, not the sender.
+
+- As little as possible, as much as necessary. Be ruthlessly
+  concise without losing important details.
+- Make it scannable. Highlight key information, decisions,
+  and calls to action; use emphasis and lists selectively.
+- Respect the recipient's time and attention. Minimize the
+  effort required to understand and respond.
+- Optimize for outcomes. When action or a response is needed,
+  make the desired next step explicit and easy to take,
+  enabling a fast, useful response.
+
 ## Prose Writing
 
 Read and follow the prose-writing skill at `~/dev/aidd-jan/.agents/skills/aidd-prose-writing/SKILL.md` only when the task requires writing or editing a prose deliverable for the user. Examples include Slack messages / DMs, posts, articles, video descriptions or scripts, notes, and documentation.

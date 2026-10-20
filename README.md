@@ -13,7 +13,7 @@
 | `espanso` | Text expansion macros (e.g. `::rtc` for reasoning chain prompt) with immutable Dvorak/QWERTY profiles selected at runtime by the Hyprland layout-sync helper |
 | `agents` | Shared global agent instructions (`~/.agents/AGENTS.md`) and personal skills (`~/.agents/skills/`) |
 | `claude` | Claude Code global settings, notification hook, and links to shared instructions and personal skills |
-| `codex` | Codex CLI model, sandbox, approval, status-line, and desktop-notification settings; `AGENTS.md` is a symlink to `~/.agents/AGENTS.md` |
+| `codex` | Codex CLI durable settings as `config.base.toml` (model, sandbox, approval, status line, trusted project list); `AGENTS.md` is a symlink to `~/.agents/AGENTS.md`. **`config.toml` is deliberately not tracked** — see below |
 | `t3` | T3 Code global thread workspace default and provider settings |
 | `grok` | Grok Build global instructions (`AGENTS.md` symlink to `~/.agents/AGENTS.md`). Permission mode is set by `install-grok.sh` in omarchy-supplement |
 | `cursor` | Cursor editor keybindings (smart select expand/shrink) and settings (keyCode dispatch for Wayland keyboard layout fix) |
@@ -94,6 +94,29 @@ uwsm-app -t service -- ~/.config/hypr/scripts/espanso-layout-sync
 ```
 
 Quattro's `autostart.lua` starts the listener automatically on future logins.
+
+## Codex config
+
+`~/.codex/config.toml` is **not** a Stow symlink. Codex rewrites that file
+whenever you trust a folder, install a plugin, or switch models, so tracking it
+directly meant the repo was never clean and a `git reset --hard` would silently
+wipe the live plugin and MCP state.
+
+Instead this repo tracks `codex/.codex/config.base.toml`: the settings worth
+carrying to a new machine. Everything machine- or session-scoped is excluded --
+`[plugins]`, `[marketplaces]`, `[mcp_servers]`, `[features]`, `[desktop]`,
+`[shell_environment_policy]`, `[tui.model_availability_nux]`, and the
+per-session trust entries Codex creates under `~/Documents/Codex/`, in the
+open-constructor-loop harness's checkouts and in `/tmp`.
+
+Sync it with `install-codex-config.sh` from
+[`omarchy-supplement`](https://github.com/janhesters/omarchy-supplement):
+
+```bash
+install-codex-config.sh           # apply the base to this machine's config
+install-codex-config.sh --pull    # capture a setting you changed in Codex
+install-codex-config.sh --check   # report drift
+```
 
 ## Notes
 

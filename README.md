@@ -18,6 +18,7 @@
 | `grok` | Grok Build global instructions (`AGENTS.md` symlink to `~/.agents/AGENTS.md`). Permission mode is set by `install-grok.sh` in omarchy-supplement |
 | `cursor` | Cursor editor keybindings (smart select expand/shrink) and settings (keyCode dispatch for Wayland keyboard layout fix) |
 | `wireplumber` | PipeWire session manager rules (demote Sony ZV-E1 camera audio so real mics always win default-source selection) |
+| `blender` | Blender app launcher that uses system Python so mise runtimes do not break startup |
 
 ### Global agent instructions
 
@@ -74,7 +75,7 @@ stow --no-folding --target "$HOME" <package>
 To apply all packages:
 
 ```bash
-for pkg in agents claude codex t3 grok cursor hyprland fastfetch voxtype xcompose espanso wireplumber; do
+for pkg in agents claude codex t3 grok cursor hyprland fastfetch voxtype xcompose espanso wireplumber blender; do
   stow --no-folding --target "$HOME" "$pkg"
 done
 omarchy restart hyprctl

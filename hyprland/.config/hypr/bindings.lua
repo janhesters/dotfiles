@@ -1,8 +1,24 @@
 local hypr_scripts = (os.getenv("XDG_CONFIG_HOME") or ((os.getenv("HOME") or "") .. "/.config")) .. "/hypr/scripts/"
 
--- Switch only after Right Alt is released. The helper keeps Hyprland and
--- Espanso on the same single-layout profile.
-o.bind("ALT + Alt_R", "Toggle Dvorak/QWERTY", hypr_scripts .. "keyboard-layout-toggle", { release = true })
+-- Switch as soon as both Alt keys are down, regardless of which one is
+-- released first. The helper keeps Hyprland and Espanso in sync.
+o.bind("ALT + Alt_R", "Toggle Dvorak/QWERTY", hypr_scripts .. "keyboard-layout-toggle")
+
+-- Temporary layout-independent clipboard override. Quattro's injected letter
+-- keys are translated through Dvorak in Electron/Chromium applications.
+local function send_clipboard_shortcut(mods, key)
+  return function()
+    hl.dispatch(hl.dsp.send_key_state({ mods = mods, key = key, state = "down" }))
+    hl.dispatch(hl.dsp.send_key_state({ mods = mods, key = key, state = "up" }))
+  end
+end
+
+hl.unbind("SUPER + C")
+hl.unbind("SUPER + V")
+hl.unbind("SUPER + X")
+o.bind("SUPER + C", "Universal copy", send_clipboard_shortcut("CTRL", "Insert"))
+o.bind("SUPER + V", "Universal paste", send_clipboard_shortcut("SHIFT", "Insert"))
+o.bind("SUPER + X", "Universal cut", send_clipboard_shortcut("SHIFT", "Delete"))
 
 -- Restore personal application choices that differ from Quattro's defaults.
 hl.unbind("SUPER + SHIFT + A")
@@ -20,8 +36,11 @@ o.bind("SUPER + SHIFT + E", "Email", "omarchy launch or focus webapp 'Gmail' 'ht
 -- Remove Quattro's HEY-only shortcut; Gmail remains on Super+Shift+E.
 hl.unbind("SUPER + SHIFT + ALT + E")
 
-o.bind("SUPER + SHIFT + I", "Claude", { webapp = "https://claude.ai" })
-o.bind("SUPER + SHIFT + ALT + I", "Claude Code", "omarchy launch or focus webapp 'Claude Code' 'https://claude.ai/code'")
+-- Launch or focus the native Claude and T3 Code apps.
+hl.unbind("SUPER + SHIFT + I")
+hl.unbind("SUPER + SHIFT + ALT + I")
+o.bind("SUPER + SHIFT + I", "Claude Desktop", { launch = "claude-desktop", focus = "^com[.]anthropic[.]Claude$" })
+o.bind("SUPER + SHIFT + ALT + I", "T3 Code", { launch = "t3code", focus = "^com[.]t3tools[.]T3Code$" })
 
 -- Personal utility bindings.
 o.bind("SUPER + R", "Toggle recording mode (16:9)", hypr_scripts .. "recording-mode-toggle")
